@@ -1,0 +1,14 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — Configuration SOPS + Age (.sops.yaml)
+# Chiffrement des secrets applicatifs et d'infrastructure au repos.
+# La clé privée maîtresse est stockée hors dépôt dans :
+#   ~/.config/resilience-alpha/age-master.key
+# ==============================================================================
+creation_rules:
+  - path_regex: infra/secrets/.*\.enc\.(json|yaml|yml|env)$
+    encrypted_regex: "^(postgres_password|jwt_secret_key|executor_hmac_secret|operator_password|probe_password|grafana_admin_password|internal_api_token)$"
+    age: >-
+      age1781ec9e33abdc5ad8635907baf5d40ab4f9b6ad5ac220c087ab1
+  - path_regex: \.env\.enc$
+    age: >-
+      age1781ec9e33abdc5ad8635907baf5d40ab4f9b6ad5ac220c087ab1

@@ -1,0 +1,73 @@
+---
+# ==============================================================================
+# Playbook : verify.yml
+# Rôle : Prouver le rétablissement réel du service métier (T0 / T5).
+#        Conformément à AGENTS.md, un simple /health HTTP 200 ne suffit JAMAIS :
+#        ce playbook obtient un jeton JWT, exécute une transaction de paiement
+#        avec clé d'idempotence unique, vérifie sa persistance COMMITTED et
+#        contrôle l'invariant comptable en centimes.
+# ==============================================================================
+- name: "Preuve Métier de Résilience de Bout en Bout (T0 / T5)"
+  hosts: resilience_host
+  gather_facts: false
+  vars:
+    waf_gateway_url: "{{ lookup('env', 'WAF_GATEWAY_URL') | default('http://127.0.0.1:8080', true) }}"
+    probe_username: "{{ lookup('env', 'PROBE_SERVICE_USER') | default('resilience_probe', true) }}"
+    probe_password: "{{ lookup('env', 'PROBE_SERVICE_PASSWORD') | default('resilience_probe_pass_2026', true) }}"
+    idempotency_key: "ansible-verify-{{ ansible_date_time.epoch | default('20261019001') }}"
+  tasks:
+    - name: "1. Vérifier la disponibilité périphérique de la passerelle WAF (/health)"
+      ansible.builtin.uri:
+        url: "{{ waf_gateway_url }}/health"
+        method: GET
+        status_code: 200
+        return_content: true
+      register: waf_health
+
+    - name: "2. Obtenir un jeton JWT signé auprès du service d'authentification"
+      ansible.builtin.uri:
+        url: "{{ waf_gateway_url }}/auth/v1/token"
+        method: POST
+        body_format: json
+        body:
+          username: "{{ probe_username }}"
+          password: "{{ probe_password }}"
+        status_code: 200
+        return_content: true
+      register: auth_token_resp
+
+    - name: "3. Exécuter une transaction de paiement fictive atomique (100 centimes = 1.00 EUR)"
+      ansible.builtin.uri:
+        url: "{{ waf_gateway_url }}/api/v1/transactions"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ auth_token_resp.json.access_token }}"
+          Idempotency-Key: "{{ idempotency_key }}"
+        body_format: json
+        body:
+          source_account_id: "ACC-FR-001"
+          target_account_id: "ACC-FR-002"
+          amount_cents: 100
+          currency: "EUR"
+          description: "Sonde de preuve métier Ansible (Zero-Touch Verification)"
+        status_code: [200, 201]
+        return_content: true
+      register: tx_create_resp
+
+    - name: "4. Relire la transaction persistée et valider le statut COMMITTED"
+      ansible.builtin.uri:
+        url: "{{ waf_gateway_url }}/api/v1/transactions/{{ tx_create_resp.json.tx_id }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ auth_token_resp.json.access_token }}"
+        status_code: 200
+        return_content: true
+      register: tx_read_resp
+
+    - name: "5. Valider l'invariant métier (statut COMMITTED et montant exact en centimes)"
+      ansible.builtin.assert:
+        that:
+          - tx_read_resp.json.status == 'COMMITTED'
+          - tx_read_resp.json.amount_cents == 100
+        fail_msg: "ÉCHEC PREUVE MÉTIER : la transaction n'est pas persistée correctement !"
+        success_msg: "PREUVE MÉTIER VALIDÉE : Transaction {{ tx_read_resp.json.tx_id }} COMMITTED (100 centimes)."

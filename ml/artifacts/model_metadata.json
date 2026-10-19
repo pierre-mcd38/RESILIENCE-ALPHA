@@ -1,0 +1,620 @@
+{
+  "model_name": "isolation_forest_v1",
+  "model_version": "1.0.0",
+  "algorithm": "sklearn.ensemble.IsolationForest (with StandardScaler pipeline)",
+  "trained_at": "2026-10-19T07:45:42Z",
+  "seed": 20261019,
+  "window_seconds": 5,
+  "consecutive_windows_required": 2,
+  "feature_names": [
+    "req_rate_rps",
+    "latency_p95_ms",
+    "error_rate_ratio",
+    "expensive_endpoint_ratio",
+    "unique_ip_entropy",
+    "cpu_worker_saturation",
+    "tx_success_ratio"
+  ],
+  "decision_threshold": -0.1176,
+  "hyperparameters": {
+    "n_estimators": 200,
+    "max_samples": "auto",
+    "contamination": 0.02,
+    "random_state": 20261019
+  },
+  "baseline_stats": {
+    "req_rate_rps": {
+      "mean": 16.8434,
+      "std": 10.8736,
+      "p05": 3.3748,
+      "p95": 40.0356,
+      "direction": 1.0,
+      "weight": 0.9331
+    },
+    "latency_p95_ms": {
+      "mean": 46.173,
+      "std": 24.104,
+      "p05": 17.0719,
+      "p95": 90.03,
+      "direction": 1.0,
+      "weight": 1.3153
+    },
+    "error_rate_ratio": {
+      "mean": 0.0364,
+      "std": 0.0378,
+      "p05": 0.0032,
+      "p95": 0.1248,
+      "direction": 1.0,
+      "weight": 1.2397
+    },
+    "expensive_endpoint_ratio": {
+      "mean": 0.056,
+      "std": 0.0546,
+      "p05": 0.0031,
+      "p95": 0.1758,
+      "direction": 1.0,
+      "weight": 0.9009
+    },
+    "unique_ip_entropy": {
+      "mean": 0.8082,
+      "std": 0.0874,
+      "p05": 0.6603,
+      "p95": 0.9525,
+      "direction": -1.0,
+      "weight": 0.6895
+    },
+    "cpu_worker_saturation": {
+      "mean": 0.2991,
+      "std": 0.1527,
+      "p05": 0.0822,
+      "p95": 0.5685,
+      "direction": 1.0,
+      "weight": 0.8561
+    },
+    "tx_success_ratio": {
+      "mean": 0.8996,
+      "std": 0.0573,
+      "p05": 0.7902,
+      "p95": 0.9771,
+      "direction": -1.0,
+      "weight": 1.0654
+    }
+  },
+  "feature_importances": {
+    "latency_p95_ms": 0.1879,
+    "error_rate_ratio": 0.1771,
+    "tx_success_ratio": 0.1522,
+    "req_rate_rps": 0.1333,
+    "expensive_endpoint_ratio": 0.1287,
+    "cpu_worker_saturation": 0.1223,
+    "unique_ip_entropy": 0.0985
+  },
+  "dataset_summary": {
+    "seed": 20261019,
+    "window_seconds": 5,
+    "features": [
+      "req_rate_rps",
+      "latency_p95_ms",
+      "error_rate_ratio",
+      "expensive_endpoint_ratio",
+      "unique_ip_entropy",
+      "cpu_worker_saturation",
+      "tx_success_ratio"
+    ],
+    "splits": {
+      "train": {
+        "path": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\ml\\data\\train_normal_sessions.csv",
+        "sessions": 75,
+        "windows": 900,
+        "anomaly_windows": 0,
+        "profiles": {
+          "normal_benign_4xx": 12,
+          "normal_idle": 15,
+          "normal_legitimate_peak": 15,
+          "normal_nominal": 22,
+          "normal_scheduled_audit": 11
+        }
+      },
+      "val": {
+        "path": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\ml\\data\\val_sessions.csv",
+        "sessions": 40,
+        "normal_sessions": 25,
+        "incident_sessions": 15,
+        "windows": 480,
+        "anomaly_windows": 135,
+        "profiles": {
+          "attack_auth_brute_force": 5,
+          "attack_l7_verify_batch_flood": 5,
+          "incident_latency_degradation": 5,
+          "normal_benign_4xx": 5,
+          "normal_idle": 5,
+          "normal_legitimate_peak": 5,
+          "normal_nominal": 5,
+          "normal_scheduled_audit": 5
+        }
+      },
+      "test": {
+        "path": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\ml\\data\\test_sessions.csv",
+        "sessions": 48,
+        "normal_sessions": 30,
+        "incident_sessions": 18,
+        "windows": 576,
+        "anomaly_windows": 162,
+        "profiles": {
+          "attack_auth_brute_force": 6,
+          "attack_l7_verify_batch_flood": 6,
+          "incident_latency_degradation": 6,
+          "normal_benign_4xx": 6,
+          "normal_idle": 6,
+          "normal_legitimate_peak": 6,
+          "normal_nominal": 6,
+          "normal_scheduled_audit": 6
+        }
+      }
+    },
+    "leakage_checks": {
+      "disjoint_session_ids": true,
+      "train_contains_only_normal": true,
+      "hidden_cheat_columns_present": false
+    }
+  },
+  "selected_model_metrics": {
+    "calibrated_threshold": -0.1176,
+    "train_time_ms": 333.53,
+    "inference_time_ms_per_window": 0.0344,
+    "validation": {
+      "decision_threshold": -0.1176,
+      "window_precision": 0.9854,
+      "window_recall": 1.0,
+      "window_f1": 0.9926,
+      "window_roc_auc": 0.9963,
+      "normal_window_fpr": 0.0058,
+      "normal_sessions_total": 25,
+      "normal_sessions_false_alarms": 0,
+      "normal_session_fpr": 0.0,
+      "incident_sessions_total": 15,
+      "incident_sessions_detected": 15,
+      "incident_session_detection_rate": 1.0,
+      "mean_suspect_delay_windows": 1.0,
+      "mean_suspect_delay_seconds": 5.0,
+      "mean_confirmed_detection_delay_windows": 2.0,
+      "mean_confirmed_detection_delay_seconds": 10.0,
+      "per_profile_summary": {
+        "normal_idle": {
+          "total": 5,
+          "triggered_incident": 0
+        },
+        "normal_nominal": {
+          "total": 5,
+          "triggered_incident": 0
+        },
+        "normal_legitimate_peak": {
+          "total": 5,
+          "triggered_incident": 0
+        },
+        "normal_benign_4xx": {
+          "total": 5,
+          "triggered_incident": 0
+        },
+        "normal_scheduled_audit": {
+          "total": 5,
+          "triggered_incident": 0
+        },
+        "attack_l7_verify_batch_flood": {
+          "total": 5,
+          "triggered_incident": 5
+        },
+        "incident_latency_degradation": {
+          "total": 5,
+          "triggered_incident": 5
+        },
+        "attack_auth_brute_force": {
+          "total": 5,
+          "triggered_incident": 5
+        }
+      }
+    },
+    "test": {
+      "decision_threshold": -0.1176,
+      "window_precision": 0.9818,
+      "window_recall": 1.0,
+      "window_f1": 0.9908,
+      "window_roc_auc": 0.9956,
+      "normal_window_fpr": 0.0072,
+      "normal_sessions_total": 30,
+      "normal_sessions_false_alarms": 0,
+      "normal_session_fpr": 0.0,
+      "incident_sessions_total": 18,
+      "incident_sessions_detected": 18,
+      "incident_session_detection_rate": 1.0,
+      "mean_suspect_delay_windows": 1.0,
+      "mean_suspect_delay_seconds": 5.0,
+      "mean_confirmed_detection_delay_windows": 2.0,
+      "mean_confirmed_detection_delay_seconds": 10.0,
+      "per_profile_summary": {
+        "normal_idle": {
+          "total": 6,
+          "triggered_incident": 0
+        },
+        "normal_nominal": {
+          "total": 6,
+          "triggered_incident": 0
+        },
+        "normal_legitimate_peak": {
+          "total": 6,
+          "triggered_incident": 0
+        },
+        "normal_benign_4xx": {
+          "total": 6,
+          "triggered_incident": 0
+        },
+        "normal_scheduled_audit": {
+          "total": 6,
+          "triggered_incident": 0
+        },
+        "attack_l7_verify_batch_flood": {
+          "total": 6,
+          "triggered_incident": 6
+        },
+        "incident_latency_degradation": {
+          "total": 6,
+          "triggered_incident": 6
+        },
+        "attack_auth_brute_force": {
+          "total": 6,
+          "triggered_incident": 6
+        }
+      }
+    },
+    "test_without_confirmation_1_window": {
+      "normal_session_fpr": 0.1,
+      "normal_sessions_false_alarms": 3,
+      "incident_session_detection_rate": 1.0
+    }
+  },
+  "model_comparison": {
+    "IsolationForest": {
+      "calibrated_threshold": -0.1176,
+      "train_time_ms": 333.53,
+      "inference_time_ms_per_window": 0.0344,
+      "validation": {
+        "decision_threshold": -0.1176,
+        "window_precision": 0.9854,
+        "window_recall": 1.0,
+        "window_f1": 0.9926,
+        "window_roc_auc": 0.9963,
+        "normal_window_fpr": 0.0058,
+        "normal_sessions_total": 25,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 15,
+        "incident_sessions_detected": 15,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.0,
+        "mean_suspect_delay_seconds": 5.0,
+        "mean_confirmed_detection_delay_windows": 2.0,
+        "mean_confirmed_detection_delay_seconds": 10.0,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "incident_latency_degradation": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "attack_auth_brute_force": {
+            "total": 5,
+            "triggered_incident": 5
+          }
+        }
+      },
+      "test": {
+        "decision_threshold": -0.1176,
+        "window_precision": 0.9818,
+        "window_recall": 1.0,
+        "window_f1": 0.9908,
+        "window_roc_auc": 0.9956,
+        "normal_window_fpr": 0.0072,
+        "normal_sessions_total": 30,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 18,
+        "incident_sessions_detected": 18,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.0,
+        "mean_suspect_delay_seconds": 5.0,
+        "mean_confirmed_detection_delay_windows": 2.0,
+        "mean_confirmed_detection_delay_seconds": 10.0,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "incident_latency_degradation": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "attack_auth_brute_force": {
+            "total": 6,
+            "triggered_incident": 6
+          }
+        }
+      },
+      "test_without_confirmation_1_window": {
+        "normal_session_fpr": 0.1,
+        "normal_sessions_false_alarms": 3,
+        "incident_session_detection_rate": 1.0
+      }
+    },
+    "OneClassSVM": {
+      "calibrated_threshold": -3.1466,
+      "train_time_ms": 5.37,
+      "inference_time_ms_per_window": 0.0086,
+      "validation": {
+        "decision_threshold": -3.1466,
+        "window_precision": 0.9854,
+        "window_recall": 1.0,
+        "window_f1": 0.9926,
+        "window_roc_auc": 1.0,
+        "normal_window_fpr": 0.0058,
+        "normal_sessions_total": 25,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 15,
+        "incident_sessions_detected": 15,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.0,
+        "mean_suspect_delay_seconds": 5.0,
+        "mean_confirmed_detection_delay_windows": 2.0,
+        "mean_confirmed_detection_delay_seconds": 10.0,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "incident_latency_degradation": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "attack_auth_brute_force": {
+            "total": 5,
+            "triggered_incident": 5
+          }
+        }
+      },
+      "test": {
+        "decision_threshold": -3.1466,
+        "window_precision": 0.9818,
+        "window_recall": 1.0,
+        "window_f1": 0.9908,
+        "window_roc_auc": 1.0,
+        "normal_window_fpr": 0.0072,
+        "normal_sessions_total": 30,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 18,
+        "incident_sessions_detected": 18,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.0,
+        "mean_suspect_delay_seconds": 5.0,
+        "mean_confirmed_detection_delay_windows": 2.0,
+        "mean_confirmed_detection_delay_seconds": 10.0,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "incident_latency_degradation": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "attack_auth_brute_force": {
+            "total": 6,
+            "triggered_incident": 6
+          }
+        }
+      },
+      "test_without_confirmation_1_window": {
+        "normal_session_fpr": 0.1,
+        "normal_sessions_false_alarms": 3,
+        "incident_session_detection_rate": 1.0
+      }
+    },
+    "EllipticEnvelope": {
+      "calibrated_threshold": -643.799,
+      "train_time_ms": 594.28,
+      "inference_time_ms_per_window": 0.0018,
+      "validation": {
+        "decision_threshold": -643.799,
+        "window_precision": 1.0,
+        "window_recall": 0.9852,
+        "window_f1": 0.9925,
+        "window_roc_auc": 0.9999,
+        "normal_window_fpr": 0.0,
+        "normal_sessions_total": 25,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 15,
+        "incident_sessions_detected": 15,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.13,
+        "mean_suspect_delay_seconds": 5.67,
+        "mean_confirmed_detection_delay_windows": 2.13,
+        "mean_confirmed_detection_delay_seconds": 10.67,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 5,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "incident_latency_degradation": {
+            "total": 5,
+            "triggered_incident": 5
+          },
+          "attack_auth_brute_force": {
+            "total": 5,
+            "triggered_incident": 5
+          }
+        }
+      },
+      "test": {
+        "decision_threshold": -643.799,
+        "window_precision": 1.0,
+        "window_recall": 0.9815,
+        "window_f1": 0.9907,
+        "window_roc_auc": 0.9999,
+        "normal_window_fpr": 0.0,
+        "normal_sessions_total": 30,
+        "normal_sessions_false_alarms": 0,
+        "normal_session_fpr": 0.0,
+        "incident_sessions_total": 18,
+        "incident_sessions_detected": 18,
+        "incident_session_detection_rate": 1.0,
+        "mean_suspect_delay_windows": 1.17,
+        "mean_suspect_delay_seconds": 5.83,
+        "mean_confirmed_detection_delay_windows": 2.17,
+        "mean_confirmed_detection_delay_seconds": 10.83,
+        "per_profile_summary": {
+          "normal_idle": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_nominal": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_legitimate_peak": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_benign_4xx": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "normal_scheduled_audit": {
+            "total": 6,
+            "triggered_incident": 0
+          },
+          "attack_l7_verify_batch_flood": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "incident_latency_degradation": {
+            "total": 6,
+            "triggered_incident": 6
+          },
+          "attack_auth_brute_force": {
+            "total": 6,
+            "triggered_incident": 6
+          }
+        }
+      },
+      "test_without_confirmation_1_window": {
+        "normal_session_fpr": 0.0,
+        "normal_sessions_false_alarms": 0,
+        "incident_session_detection_rate": 1.0
+      }
+    }
+  },
+  "artifact_path": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\ml\\artifacts\\isolation_forest.joblib"
+}

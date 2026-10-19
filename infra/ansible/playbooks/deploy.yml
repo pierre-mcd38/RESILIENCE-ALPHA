@@ -1,0 +1,42 @@
+---
+# ==============================================================================
+# Playbook : deploy.yml
+# Rôle : Vérifier les secrets chiffrés SOPS/Age, valider la topologie Docker Compose
+#        et assurer le démarrage idempotent de la stack RESILIENCE-ALPHA.
+# ==============================================================================
+- name: "Déploiement idempotent de la plateforme RESILIENCE-ALPHA"
+  hosts: resilience_host
+  gather_facts: false
+  vars:
+    repo_root: "{{ playbook_dir }}/../.."
+    compose_path: "{{ playbook_dir }}/../compose/docker-compose.yml"
+    secrets_script: "{{ playbook_dir }}/../../scripts/secrets_manager.py"
+  tasks:
+    - name: "1. Vérifier la présence et l'intégrité du coffre de secrets chiffré (SOPS/Age)"
+      ansible.builtin.command:
+        cmd: "python {{ secrets_script }} verify"
+        chdir: "{{ repo_root }}"
+      register: secrets_verify
+      changed_when: false
+
+    - name: "2. Générer le fichier d'environnement éphémère à partir du coffre chiffré"
+      ansible.builtin.command:
+        cmd: "python {{ secrets_script }} render-env"
+        chdir: "{{ repo_root }}"
+      register: render_env
+      changed_when: "'GENERATED' in render_env.stdout"
+
+    - name: "3. Valider la syntaxe et les contraintes de sécurité du fichier Docker Compose"
+      ansible.builtin.command:
+        cmd: "docker compose -f {{ compose_path }} config -q"
+        chdir: "{{ repo_root }}"
+      changed_when: false
+
+    - name: "4. Démarrer les conteneurs de la plateforme (idempotent)"
+      ansible.builtin.command:
+        cmd: "docker compose -f {{ compose_path }} up -d --build"
+        chdir: "{{ repo_root }}"
+      register: compose_up
+      changed_when: "'Started' in compose_up.stderr or 'Created' in compose_up.stderr"
+      tags:
+        - runtime

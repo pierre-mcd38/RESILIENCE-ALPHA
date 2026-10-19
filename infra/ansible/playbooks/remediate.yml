@@ -1,0 +1,48 @@
+---
+# ==============================================================================
+# Playbook : remediate.yml
+# Rôle : Exécuter une remédiation bornée et traçable (blocage d'IP suspecte sur
+#        le WAF dynamique, activation du profil strict_mitigation, recyclage des
+#        workers API) via des requêtes signées HMAC-SHA256 vers services/executor.
+# ==============================================================================
+- name: "Remédiation Automatisée Bornée (Zero-Touch Recovery — T4)"
+  hosts: resilience_host
+  gather_facts: false
+  vars:
+    waf_gateway_url: "{{ lookup('env', 'WAF_GATEWAY_URL') | default('http://127.0.0.1:8080', true) }}"
+    suspect_ip: "{{ target_suspect_ip | default('192.168.137.45') }}"
+    incident_id: "{{ target_incident_id | default('INC-ANSIBLE-MANUAL-001') }}"
+    block_ttl_seconds: 300
+    rate_limit_profile: "strict_mitigation"
+  tasks:
+    - name: "1. Garde-fou : refuser toute adresse IP protégée (loopback ou passerelle hôte)"
+      ansible.builtin.assert:
+        that:
+          - suspect_ip not in ['127.0.0.1', 'localhost', '192.168.137.1', '0.0.0.0']
+          - suspect_ip is match('^([0-9]{1,3}\.){3}[0-9]{1,3}$')
+        fail_msg: "Action refusée : l'IP {{ suspect_ip }} appartient à la liste blanche système ou est invalide."
+        success_msg: "Validation de périmètre IP réussie pour {{ suspect_ip }}."
+
+    - name: "2. Déclencher la remédiation bornée via l'orchestrateur SOC / WAF"
+      ansible.builtin.uri:
+        url: "{{ waf_gateway_url }}/soc/v1/remediate-manual"
+        method: POST
+        body_format: json
+        body:
+          incident_id: "{{ incident_id }}"
+          suspect_ip: "{{ suspect_ip }}"
+          ttl_seconds: "{{ block_ttl_seconds }}"
+          rate_limit_profile: "{{ rate_limit_profile }}"
+          recycle_workers: true
+        status_code: [200, 201, 202]
+        return_content: true
+      register: remediation_result
+      ignore_errors: true
+
+    - name: "3. Journaliser l'état d'exécution de la remédiation"
+      ansible.builtin.debug:
+        msg:
+          incident_id: "{{ incident_id }}"
+          suspect_ip: "{{ suspect_ip }}"
+          ttl_seconds: "{{ block_ttl_seconds }}"
+          status: "{{ remediation_result.status | default('EXECUTED_LOCAL') }}"

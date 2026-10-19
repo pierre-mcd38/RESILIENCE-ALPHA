@@ -1,0 +1,10 @@
+---
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — Playbook Maître (site.yml)
+# Orchestre la validation, le déploiement et la vérification métier de bout en bout.
+# ==============================================================================
+- name: "Étape 1 : Déploiement idempotent et vérification de l'infrastructure"
+  import_playbook: playbooks/deploy.yml
+
+- name: "Étape 2 : Vérification de santé et preuve de transaction métier (T0 / T5)"
+  import_playbook: playbooks/verify.yml

@@ -1,0 +1,34 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — Configuration Promtail (promtail-config.yml)
+# Collecte des journaux d'audit chaînés sans exposer /var/run/docker.sock
+# ==============================================================================
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: resilience_audit_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: executor_audit
+          project: resilience-alpha
+          __path__: /var/log/resilience-audit/*.jsonl
+    pipeline_stages:
+      - json:
+          expressions:
+            command_id: command_id
+            incident_id: incident_id
+            action: action
+            status: status
+            audit_chain_hash: audit_chain_hash
+      - labels:
+          action:
+          status:

@@ -1,0 +1,50 @@
+{
+  "timestamp": "2026-10-19T08:00:06.016509+00:00",
+  "duration_seconds": 51.27,
+  "unit_and_integration_tests": {
+    "total_run": 14,
+    "failures": 0,
+    "errors": 0,
+    "status": "PASS"
+  },
+  "checks": [
+    {
+      "check": "Tests Métier (Auth JWT, RBAC, Centimes, Idempotence, Persistance, Invariant)",
+      "status": "PASS"
+    },
+    {
+      "check": "Tests Sécurité Exécuteur (HMAC, Anti-Rejeu, Allowlist, Anti-Shell, Audit SHA-256)",
+      "status": "PASS"
+    },
+    {
+      "check": "Tests WAF Statique & Dynamique + Garde-fous Scénario Offensif & Kill-Switch",
+      "status": "PASS"
+    },
+    {
+      "check": "Tests Modèle ML IsolationForest & Assistant Documentaire RAG Local",
+      "status": "PASS"
+    },
+    {
+      "check": "3 Répétitions Chronométrées de Bout en Bout (T0 -> Attaque -> ML -> Remédiation -> T5)",
+      "status": "PASS"
+    },
+    {
+      "check": "Validation Syntaxique Docker Compose (docker compose config -q)",
+      "status": "PASS"
+    },
+    {
+      "check": "Scan de Secrets et Clés Privées (scripts/secret_scan.py)",
+      "status": "PASS"
+    },
+    {
+      "check": "Déploiement Conteneurs sur Démon Docker Desktop (docker compose up)",
+      "status": "BLOCKED",
+      "reason": "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur."
+    },
+    {
+      "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant -> 192.168.137.1)",
+      "status": "BLOCKED",
+      "reason": "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G<n> (192.168.137.1) et la connexion physique du 2e PC."
+    }
+  ]
+}

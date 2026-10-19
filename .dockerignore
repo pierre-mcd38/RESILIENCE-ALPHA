@@ -1,0 +1,22 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — .dockerignore
+# ==============================================================================
+.git
+.gitignore
+.env
+.env.*
+*.key
+*.pem
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache
+node_modules
+deliverables
+docs/soutenance
+tests
+scenarios
+*.zip
+*.pdf
+*.pptx

@@ -1,0 +1,55 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — .gitignore
+# Sécurité stricte : aucun secret en clair, aucune clé privée, aucun artefact lourd
+# ==============================================================================
+
+# Secrets & Clés cryptographiques (INTERDITS DANS GIT)
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+*.p12
+*.pfx
+age.key
+age-master.key
+infra/secrets/*.dec.*
+infra/secrets/decrypted*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Frontend
+node_modules/
+services/frontend/dist/
+services/frontend/build/
+npm-debug.log*
+
+# Données runtime & Journaux locaux
+logs/
+*.log
+tmp/
+.kill_switch
+scenarios/.kill_switch
+data/runtime/
+
+# Volumes Docker locaux éventuels
+.docker/
+pgdata/
+
+# OS & IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

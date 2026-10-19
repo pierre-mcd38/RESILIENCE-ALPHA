@@ -1,0 +1,62 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — Configuration Prometheus (prometheus.yml)
+# Collecte des métriques RED (Rate, Errors, Duration) et des scores ML AIOps
+# ==============================================================================
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+  external_labels:
+    project: "resilience-alpha"
+    environment: "workshop-2026"
+
+rule_files:
+  - "/etc/prometheus/alerts.yml"
+
+scrape_configs:
+  - job_name: "waf-gateway"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["waf-gateway:8080"]
+        labels:
+          zone: "edge_net"
+          service: "waf-gateway"
+
+  - job_name: "payment-api"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["api:8001"]
+        labels:
+          zone: "app_net"
+          service: "api"
+
+  - job_name: "auth-service"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["auth:8002"]
+        labels:
+          zone: "app_net"
+          service: "auth"
+
+  - job_name: "ml-detector"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["detector:8003"]
+        labels:
+          zone: "obs_net"
+          service: "detector"
+
+  - job_name: "soc-remediator"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["remediator:8004"]
+        labels:
+          zone: "obs_net"
+          service: "remediator"
+
+  - job_name: "rag-assistant"
+    metrics_path: "/metrics"
+    static_configs:
+      - targets: ["rag:8006"]
+        labels:
+          zone: "obs_net"
+          service: "rag"

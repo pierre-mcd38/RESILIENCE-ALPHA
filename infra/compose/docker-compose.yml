@@ -1,0 +1,504 @@
+name: resilience-alpha
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: resilience-postgres
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-resilience_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-resilience_fictional_db_pass_2026}
+      POSTGRES_DB: ${POSTGRES_DB:-resilience_ledger}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    networks:
+      data_net:
+        ipv4_address: 172.28.30.10
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-resilience_app} -d ${POSTGRES_DB:-resilience_ledger}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  auth:
+    build:
+      context: ../../services/auth # ./services/auth
+      dockerfile: Dockerfile
+    image: resilience-alpha/auth:1.0.0
+    container_name: resilience-auth
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SERVICE_NAME: auth
+      SERVICE_PORT: "8002"
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-resilience_fictional_jwt_secret_2026}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-3600}
+      OPERATOR_DEFAULT_USER: ${OPERATOR_DEFAULT_USER:-operator_alpha}
+      OPERATOR_DEFAULT_PASSWORD: ${OPERATOR_DEFAULT_PASSWORD:-resilience_op_pass_2026}
+      PROBE_SERVICE_USER: ${PROBE_SERVICE_USER:-resilience_probe}
+      PROBE_SERVICE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-resilience_probe_pass_2026}
+    networks:
+      app_net:
+        ipv4_address: 172.28.20.12
+      data_net:
+        ipv4_address: 172.28.30.12
+      obs_net:
+        ipv4_address: 172.28.40.12
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8002/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  api:
+    build:
+      context: ../../services/api # ./services/api
+      dockerfile: Dockerfile
+    image: resilience-alpha/api:1.0.0
+    container_name: resilience-api
+    restart: unless-stopped
+    cpus: 0.75
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      postgres:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: api
+      SERVICE_PORT: "8001"
+      DATABASE_URL: postgresql://${POSTGRES_USER:-resilience_app}:${POSTGRES_PASSWORD:-resilience_fictional_db_pass_2026}@postgres:5432/${POSTGRES_DB:-resilience_ledger}
+      AUTH_SERVICE_URL: http://auth:8002
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-resilience_fictional_jwt_secret_2026}
+      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+    networks:
+      app_net:
+        ipv4_address: 172.28.20.11
+      data_net:
+        ipv4_address: 172.28.30.11
+      obs_net:
+        ipv4_address: 172.28.40.11
+      control_net:
+        ipv4_address: 172.28.50.11
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 8s
+
+  waf-gateway:
+    build:
+      context: ../../services/waf_gateway # ./services/waf_gateway
+      dockerfile: Dockerfile
+    image: resilience-alpha/waf-gateway:1.0.0
+    container_name: resilience-waf-gateway
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      api:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:8080:8080"
+    environment:
+      SERVICE_NAME: waf-gateway
+      SERVICE_PORT: "8080"
+      API_UPSTREAM_URL: http://api:8001
+      AUTH_UPSTREAM_URL: http://auth:8002
+      REMEDIATOR_UPSTREAM_URL: http://remediator:8004
+      RAG_UPSTREAM_URL: http://rag:8006
+      WAF_BLOCK_TTL_SECONDS: ${WAF_BLOCK_TTL_SECONDS:-300}
+    volumes:
+      - ../waf:/etc/resilience-waf:ro
+    networks:
+      edge_net:
+        ipv4_address: 172.28.10.10
+      app_net:
+        ipv4_address: 172.28.20.10
+      obs_net:
+        ipv4_address: 172.28.40.10
+      control_net:
+        ipv4_address: 172.28.50.10
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  detector:
+    build:
+      context: ../../services/detector # ./services/detector
+      dockerfile: Dockerfile
+    image: resilience-alpha/detector:1.0.0
+    container_name: resilience-detector
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      waf-gateway:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: detector
+      SERVICE_PORT: "8003"
+      WAF_METRICS_URL: http://waf-gateway:8080/metrics
+      API_METRICS_URL: http://api:8001/metrics
+      REMEDIATOR_EVENTS_URL: http://remediator:8004/soc/v1/anomaly-events
+      ML_MODEL_PATH: /app/ml/artifacts/isolation_forest.joblib
+      ML_DECISION_THRESHOLD: ${ML_DECISION_THRESHOLD:--0.0850}
+      ML_WINDOW_SECONDS: ${ML_WINDOW_SECONDS:-5}
+    volumes:
+      - ../../ml/artifacts:/app/ml/artifacts:ro
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.13
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8003/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  remediator:
+    build:
+      context: ../../services/remediator # ./services/remediator
+      dockerfile: Dockerfile
+    image: resilience-alpha/remediator:1.0.0
+    container_name: resilience-remediator
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      executor:
+        condition: service_healthy
+      api:
+        condition: service_healthy
+      auth:
+        condition: service_healthy
+    environment:
+      SERVICE_NAME: remediator
+      SERVICE_PORT: "8004"
+      WAF_GATEWAY_URL: http://waf-gateway:8080
+      API_SERVICE_URL: http://api:8001
+      AUTH_SERVICE_URL: http://auth:8002
+      EXECUTOR_SERVICE_URL: http://executor:8005
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-resilience_fictional_hmac_secret_2026}
+      PROBE_SERVICE_USER: ${PROBE_SERVICE_USER:-resilience_probe}
+      PROBE_SERVICE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-resilience_probe_pass_2026}
+      REMEDIATION_MAX_ATTEMPTS: ${REMEDIATION_MAX_ATTEMPTS:-3}
+      REMEDIATION_COOLDOWN_SECONDS: ${REMEDIATION_COOLDOWN_SECONDS:-15}
+      WAF_BLOCK_TTL_SECONDS: ${WAF_BLOCK_TTL_SECONDS:-300}
+    networks:
+      app_net:
+        ipv4_address: 172.28.20.14
+      obs_net:
+        ipv4_address: 172.28.40.14
+      control_net:
+        ipv4_address: 172.28.50.14
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8004/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  executor:
+    build:
+      context: ../../services/executor # ./services/executor
+      dockerfile: Dockerfile
+    image: resilience-alpha/executor:1.0.0
+    container_name: resilience-executor
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SERVICE_NAME: executor
+      SERVICE_PORT: "8005"
+      WAF_ADMIN_URL: http://waf-gateway:8080/internal/waf
+      API_ADMIN_URL: http://api:8001/internal/admin
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-resilience_fictional_hmac_secret_2026}
+      EXECUTOR_TIMESTAMP_TOLERANCE_SECONDS: ${EXECUTOR_TIMESTAMP_TOLERANCE_SECONDS:-30}
+      AUDIT_LOG_PATH: /var/log/resilience-audit/executor_audit.jsonl
+    volumes:
+      - audit_data:/var/log/resilience-audit
+    networks:
+      control_net:
+        ipv4_address: 172.28.50.15
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8005/health', timeout=2)"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  rag:
+    build:
+      context: ../../services/rag # ./services/rag
+      dockerfile: Dockerfile
+    image: resilience-alpha/rag:1.0.0
+    container_name: resilience-rag
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SERVICE_NAME: rag
+      SERVICE_PORT: "8006"
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
+      RAG_DOCS_ROOT: /app/docs
+    volumes:
+      - ../../docs:/app/docs:ro
+      - ../../AGENTS.md:/app/AGENTS.md:ro
+      - ../ansible:/app/infra/ansible:ro
+    networks:
+      app_net:
+        ipv4_address: 172.28.20.16
+      obs_net:
+        ipv4_address: 172.28.40.16
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8006/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  frontend:
+    build:
+      context: ../../services/frontend # ./services/frontend
+      dockerfile: Dockerfile
+    image: resilience-alpha/frontend:1.0.0
+    container_name: resilience-frontend
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      waf-gateway:
+        condition: service_healthy
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:3000:3000"
+    environment:
+      VITE_API_BASE_URL: http://${HOST_BIND_IP:-127.0.0.1}:8080
+    networks:
+      edge_net:
+        ipv4_address: 172.28.10.20
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: resilience-prometheus
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=24h"
+      - "--web.enable-lifecycle"
+    volumes:
+      - ../observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ../observability/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.20
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  loki:
+    image: grafana/loki:3.1.1
+    container_name: resilience-loki
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    command: -config.file=/etc/loki/loki-config.yml
+    volumes:
+      - ../observability/loki/loki-config.yml:/etc/loki/loki-config.yml:ro
+      - loki_data:/loki
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.21
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3100/ready >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  promtail:
+    image: grafana/promtail:3.1.1
+    container_name: resilience-promtail
+    restart: unless-stopped
+    cpus: 0.25
+    mem_limit: 128M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      loki:
+        condition: service_healthy
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ../observability/promtail/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - audit_data:/var/log/resilience-audit:ro
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.22
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:9080/ready >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    container_name: resilience-grafana
+    restart: unless-stopped
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      loki:
+        condition: service_healthy
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-resilience_grafana_2026}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Viewer"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ../observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.23
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  ansible-runner:
+    image: python:3.12-slim
+    container_name: resilience-ansible-runner
+    profiles:
+      - ops
+    restart: "no"
+    cpus: 0.50
+    mem_limit: 256M
+    security_opt:
+      - no-new-privileges:true
+    working_dir: /workspace/infra/ansible
+    entrypoint: ["sh", "-c", "pip install --no-cache-dir ansible-core requests pyyaml && ansible-playbook -i inventory.ini site.yml"]
+    volumes:
+      - ../..:/workspace:ro
+      - audit_data:/var/log/resilience-audit
+    networks:
+      obs_net:
+        ipv4_address: 172.28.40.30
+      control_net:
+        ipv4_address: 172.28.50.30
+    healthcheck:
+      test: ["CMD", "python", "-c", "print('ok')"]
+      interval: 30s
+      timeout: 3s
+      retries: 1
+
+networks:
+  edge_net:
+    name: resilience_edge_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.10.0/24
+
+  app_net:
+    name: resilience_app_net
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.20.0/24
+
+  data_net:
+    name: resilience_data_net
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.30.0/24
+
+  obs_net:
+    name: resilience_obs_net
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.40.0/24
+
+  control_net:
+    name: resilience_control_net
+    driver: bridge
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.28.50.0/24
+
+volumes:
+  pg_data:
+    name: resilience_pg_data
+  prometheus_data:
+    name: resilience_prometheus_data
+  loki_data:
+    name: resilience_loki_data
+  grafana_data:
+    name: resilience_grafana_data
+  audit_data:
+    name: resilience_audit_data

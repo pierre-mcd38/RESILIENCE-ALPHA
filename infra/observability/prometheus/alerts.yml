@@ -1,0 +1,46 @@
+# ==============================================================================
+# PROJECT RESILIENCE-ALPHA — Règles d'Alerte Prometheus (alerts.yml)
+# ==============================================================================
+groups:
+  - name: resilience_alpha_slo_and_aiops
+    interval: 2s
+    rules:
+      - alert: MLAnomalyDetected
+        expr: resilience_ml_anomaly_score < -0.085
+        for: 4s
+        labels:
+          severity: critical
+          category: aiops_ml
+        annotations:
+          summary: "Anomalie ML détectée par IsolationForest (Score={{ $value }})"
+          description: "Le score IsolationForest est passé sous le seuil calibré (-0.085) sur 2 fenêtres consécutives."
+
+      - alert: PaymentAPILatencyDegraded
+        expr: resilience_api_latency_p95_ms > 500
+        for: 4s
+        labels:
+          severity: warning
+          category: slo_latency
+        annotations:
+          summary: "Dégradation de latence P95 sur l'API Paiement ({{ $value }} ms)"
+          description: "La latence P95 dépasse le SLO de 500 ms suite à une saturation de workers."
+
+      - alert: PaymentAPIWorkerSaturation
+        expr: resilience_api_worker_saturation_ratio > 0.85
+        for: 4s
+        labels:
+          severity: critical
+          category: resource_exhaustion
+        annotations:
+          summary: "Saturation critique des workers de l'API Métier ({{ $value }})"
+          description: "Épuisement applicatif L7 détecté (probablement sur /api/v1/transactions/verify-batch)."
+
+      - alert: IncidentStateFailed
+        expr: resilience_incident_state_code == 6
+        for: 1s
+        labels:
+          severity: page
+          category: zero_touch_recovery
+        annotations:
+          summary: "Échec de remédiation autonome après 3 tentatives (État FAILED)"
+          description: "L'automate de résilience a atteint MAX_ATTEMPTS=3 sans preuve métier valide. Escalade opérateur."
