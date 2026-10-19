@@ -54,7 +54,8 @@ class WafEngine:
         # ip -> {"blocked_at": iso, "expires_at": epoch, "ttl_seconds": int, "reason": str, "blocked_hits": int}
         self.dynamic_blocklist: Dict[str, Dict[str, Any]] = {}
         # ip -> deque of timestamps
-        self.ip_request_Windows: Dict[str, Deque[float]] = {}
+        self.ip_request_windows: Dict[str, Deque[float]] = {}
+        self.ip_request_Windows = self.ip_request_windows
         self.ip_expensive_windows: Dict[str, Deque[float]] = {}
         self.waf_events: Deque[Dict[str, Any]] = collections.deque(maxlen=500)
         self.request_logs: Deque[Dict[str, Any]] = collections.deque(maxlen=1000)
@@ -197,6 +198,20 @@ class WafEngine:
             for rule_id, pattern in STATIC_WAF_SIGNATURES:
                 if pattern.search(inspection_buffer):
                     self.metrics["waf_blocked_signature_total"] += 1
+                    self.request_logs.append(
+                        {
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                            "ts_epoch": now,
+                            "source_ip": source_ip,
+                            "method": method,
+                            "path": path,
+                            "is_expensive": True,
+                            "is_signature_attack": True,
+                            "is_auth_route": "/auth/" in path,
+                            "rule_id": rule_id,
+                            "correlation_id": correlation_id,
+                        }
+                    )
                     evt = self._record_event_unlocked(
                         event_type="WAF_REQUEST_BLOCKED_SIGNATURE",
                         source_ip=source_ip,
@@ -214,12 +229,13 @@ class WafEngine:
                     }, 403
 
             # 3. Limitation de débit selon le profil actif
-            win = self.ip_request_Windows.setdefault(source_ip, collections.deque(maxlen=500))
+            win = self.ip_request_windows.setdefault(source_ip, collections.deque(maxlen=500))
             while win and win[0] < now - 5.0:
                 win.popleft()
             win.append(now)
 
             is_expensive_route = "/verify-batch" in path or "/reconcile" in path
+            is_auth_route = "/auth/" in path
             exp_win = self.ip_expensive_windows.setdefault(source_ip, collections.deque(maxlen=300))
             while exp_win and exp_win[0] < now - 5.0:
                 exp_win.popleft()
@@ -233,6 +249,20 @@ class WafEngine:
 
             if len(win) > max_general or (is_expensive_route and len(exp_win) > max_expensive):
                 self.metrics["waf_blocked_ratelimit_total"] += 1
+                self.request_logs.append(
+                    {
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                        "ts_epoch": now,
+                        "source_ip": source_ip,
+                        "method": method,
+                        "path": path,
+                        "is_expensive": is_expensive_route,
+                        "is_signature_attack": False,
+                        "is_auth_route": is_auth_route,
+                        "is_rate_limited": True,
+                        "correlation_id": correlation_id,
+                    }
+                )
                 evt = self._record_event_unlocked(
                     event_type="WAF_REQUEST_RATE_LIMITED",
                     source_ip=source_ip,
@@ -259,25 +289,48 @@ class WafEngine:
                     "method": method,
                     "path": path,
                     "is_expensive": is_expensive_route,
+                    "is_signature_attack": False,
+                    "is_auth_route": is_auth_route,
                     "correlation_id": correlation_id,
                 }
             )
             return True, None, 200
 
     def get_dominant_suspect_ip(self, window_seconds: float = 15.0) -> Optional[str]:
-        """Identifie l'adresse IP responsable du plus grand volume d'appels coûteux sur la fenêtre récente."""
+        """Identifie l'adresse IP responsable du plus grand volume d'appels suspects sur la fenêtre récente."""
         now = time.time()
         cutoff = now - window_seconds
         with self.lock:
             counts: Dict[str, int] = {}
             for entry in self.request_logs:
                 if entry["ts_epoch"] >= cutoff:
-                    weight = 3 if entry.get("is_expensive") else 1
+                    weight = 5 if entry.get("is_signature_attack") else (3 if (entry.get("is_expensive") or entry.get("is_auth_route")) else 1)
                     ip = entry["source_ip"]
                     counts[ip] = counts.get(ip, 0) + weight
             if not counts:
                 return None
             return max(counts.items(), key=lambda kv: kv[1])[0]
+
+    def get_window_waf_stats(self, window_seconds: float = 5.0) -> Dict[str, Any]:
+        """Retourne les statistiques temps réel de tous les vecteurs observés par le WAF sur la fenêtre."""
+        now = time.time()
+        cutoff = now - window_seconds
+        with self.lock:
+            recent = [e for e in self.request_logs if e["ts_epoch"] >= cutoff]
+            sig_hits = sum(1 for e in recent if e.get("is_signature_attack"))
+            auth_reqs = sum(1 for e in recent if e.get("is_auth_route"))
+            exp_reqs = sum(1 for e in recent if e.get("is_expensive"))
+            ip_counts: Dict[str, int] = {}
+            for e in recent:
+                ip = e["source_ip"]
+                ip_counts[ip] = ip_counts.get(ip, 0) + 1
+            return {
+                "total_waf_window_requests": len(recent),
+                "waf_signature_hits": sig_hits,
+                "waf_auth_requests": auth_reqs,
+                "waf_expensive_requests": exp_reqs,
+                "waf_ip_counts": ip_counts,
+            }
 
     def get_status(self) -> Dict[str, Any]:
         now = time.time()

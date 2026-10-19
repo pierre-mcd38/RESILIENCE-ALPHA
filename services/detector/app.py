@@ -69,6 +69,13 @@ class AnomalyDetectorEngine:
         self.consecutive_anomalies: int = 0
         self.last_score: float = 0.0
         self.last_is_anomaly: bool = False
+        self.last_attack_type: str = "NOMINAL"
+        self.anomalies_by_type: dict[str, int] = {
+            "FLOOD_L7_VERIFY_BATCH": 0,
+            "BRUTE_FORCE_AUTH_JWT": 0,
+            "INJECTION_L7_SQLI_XSS": 0,
+            "SATURATION_LATENCE_DOS": 0,
+        }
         self.last_event: dict[str, Any] | None = None
         self.history: list[dict[str, Any]] = []
 
@@ -98,6 +105,30 @@ class AnomalyDetectorEngine:
         with self._lock:
             self.consecutive_anomalies = 0
             self.last_is_anomaly = False
+            self.last_attack_type = "NOMINAL"
+
+    def _classify_attack_vector(
+        self,
+        features: Mapping[str, float],
+        payload: Mapping[str, Any],
+        is_anomaly: bool,
+    ) -> str:
+        if not is_anomaly:
+            return "NOMINAL"
+        sig_hits = int(payload.get("waf_signature_hits", 0))
+        auth_reqs = int(payload.get("waf_auth_requests", 0))
+        if sig_hits > 0:
+            return "INJECTION_L7_SQLI_XSS"
+        if auth_reqs >= 4 or (
+            float(features.get("error_rate_ratio", 0.0)) >= 0.40
+            and float(features.get("expensive_endpoint_ratio", 0.0)) < 0.45
+        ):
+            return "BRUTE_FORCE_AUTH_JWT"
+        if float(features.get("expensive_endpoint_ratio", 0.0)) >= 0.35 and float(
+            features.get("req_rate_rps", 0.0)
+        ) >= 1.5:
+            return "FLOOD_L7_VERIFY_BATCH"
+        return "SATURATION_LATENCE_DOS"
 
     def _resolve_dominant_ip(self, payload: Mapping[str, Any]) -> str:
         if "dominant_source_ip" in payload and payload["dominant_source_ip"]:
@@ -121,6 +152,7 @@ class AnomalyDetectorEngine:
         raw_score = float(self.pipeline.decision_function(vec)[0])
         anomaly_score = round(raw_score, 4)
         is_anomaly = bool(raw_score < self.decision_threshold)
+        attack_type = self._classify_attack_vector(features, payload, is_anomaly)
 
         top_features = compute_top_contributing_features(
             features,
@@ -136,6 +168,9 @@ class AnomalyDetectorEngine:
             if is_anomaly:
                 self.anomalies_total += 1
                 self.consecutive_anomalies += 1
+                self.anomalies_by_type[attack_type] = (
+                    self.anomalies_by_type.get(attack_type, 0) + 1
+                )
             else:
                 self.consecutive_anomalies = 0
 
@@ -143,6 +178,7 @@ class AnomalyDetectorEngine:
             consec = self.consecutive_anomalies
             self.last_score = anomaly_score
             self.last_is_anomaly = is_anomaly
+            self.last_attack_type = attack_type
 
             event: dict[str, Any] = {
                 "event_id": str(
@@ -160,6 +196,7 @@ class AnomalyDetectorEngine:
                 "anomaly_score": anomaly_score,
                 "decision_threshold": round(self.decision_threshold, 4),
                 "is_anomaly": is_anomaly,
+                "detected_attack_type": attack_type,
                 "consecutive_anomalies": consec,
                 "features": features,
                 "top_contributing_features": top_features,
@@ -215,9 +252,11 @@ class AnomalyDetectorEngine:
                 "feature_importances": self.feature_importances,
                 "inferences_total": self.inferences_total,
                 "anomalies_total": self.anomalies_total,
+                "anomalies_by_type": dict(self.anomalies_by_type),
                 "consecutive_anomalies": self.consecutive_anomalies,
                 "last_score": self.last_score,
                 "last_is_anomaly": self.last_is_anomaly,
+                "last_attack_type": self.last_attack_type,
                 "last_event": self.last_event,
             }
 
@@ -230,6 +269,7 @@ class AnomalyDetectorEngine:
             anom_total = int(self.anomalies_total)
             consec_val = int(self.consecutive_anomalies)
             thresh_val = float(self.decision_threshold)
+            by_type = dict(self.anomalies_by_type)
 
         lines = [
             "# HELP detector_anomaly_score Dernier score continu IsolationForest (negatif sous le seuil = anomalie).",
@@ -250,8 +290,12 @@ class AnomalyDetectorEngine:
             "# HELP detector_decision_threshold Seuil de decision calibre du modele IsolationForest.",
             "# TYPE detector_decision_threshold gauge",
             f"detector_decision_threshold {thresh_val:.4f}",
-            "",
+            "# HELP detector_attacks_by_type_total Nombre d'attaques detectees par le modele IA selon le vecteur.",
+            "# TYPE detector_attacks_by_type_total counter",
         ]
+        for k, v in by_type.items():
+            lines.append(f'detector_attacks_by_type_total{{attack_type="{k}"}} {v}')
+        lines.append("")
         return "\n".join(lines)
 
 

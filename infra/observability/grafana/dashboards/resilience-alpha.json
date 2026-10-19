@@ -263,15 +263,112 @@
           "refId": "B"
         }
       ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 16, "x": 0, "y": 20 },
+      "id": 8,
+      "title": "Détections IA Multi-Vecteurs par Type d'Attaque (IsolationForest)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "detector_attacks_by_type_total{attack_type=\"FLOOD_L7_VERIFY_BATCH\"}",
+          "legendFormat": "Flood L7 (/verify-batch)",
+          "refId": "A"
+        },
+        {
+          "expr": "detector_attacks_by_type_total{attack_type=\"BRUTE_FORCE_AUTH_JWT\"}",
+          "legendFormat": "Brute-Force Auth (/auth/v1/token)",
+          "refId": "B"
+        },
+        {
+          "expr": "detector_attacks_by_type_total{attack_type=\"INJECTION_L7_SQLI_XSS\"}",
+          "legendFormat": "Injection L7 (SQLi / XSS / Traversal)",
+          "refId": "C"
+        },
+        {
+          "expr": "detector_attacks_by_type_total{attack_type=\"SATURATION_LATENCE_DOS\"}",
+          "legendFormat": "Saturation Latence / DoS",
+          "refId": "D"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": { "color": "orange", "index": 0, "text": "RETRIEVAL ONLY" },
+                "1": { "color": "green", "index": 1, "text": "OLLAMA ACTIVE (gemma4:e4b)" }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "orange", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 8, "x": 16, "y": 20 },
+      "id": 9,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value_and_name"
+      },
+      "title": "Cerveau IA Local Ollama (gemma4:e4b) & Chunks RAG",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "rag_ollama_active",
+          "legendFormat": "Statut LLM Local",
+          "refId": "A"
+        },
+        {
+          "expr": "rag_indexed_chunks_total",
+          "legendFormat": "Sections RAG Indexées",
+          "refId": "B"
+        }
+      ]
     }
   ],
   "refresh": "2s",
   "schemaVersion": 39,
-  "tags": ["resilience-alpha", "aiops", "payment", "soc"],
+  "tags": ["resilience-alpha", "aiops", "payment", "soc", "ollama"],
   "templating": { "list": [] },
   "time": { "from": "now-15m", "to": "now" },
   "timezone": "browser",
-  "title": "RESILIENCE-ALPHA — Supervision Métier, ML & Zero-Touch Recovery",
+  "title": "RESILIENCE-ALPHA — Supervision IA Multi-Attaques, Ollama & Zero-Touch Recovery",
   "uid": "resilience-alpha-main",
-  "version": 2
+  "version": 3
 }
+

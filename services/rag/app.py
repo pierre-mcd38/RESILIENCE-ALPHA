@@ -9,7 +9,7 @@ Conformément à ADR-005 et `AGENTS.md` :
 - En cas d'indisponibilité du serveur Ollama, bascule de manière transparente et explicite
   sur `llm_status: "OFFLINE_RETRIEVAL_ONLY"` (vs `"OLLAMA_ACTIVE"`) en fournissant une synthèse
   extractive fidèle avec citations obligatoires.
-- Refuse d'inventer une procédure absente lorsque le score de similarité maximal est `< 0.12`
+- Refuse d'inventer une procédure absente lorsque le score de similarité maximal est `< 0.06`
   ou lorsqu'une tentative d'injection de prompt / exécution d'action est détectée.
 """
 
@@ -30,7 +30,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from services.rag.indexer import MarkdownSectionIndexer
 
-SIMILARITY_THRESHOLD: float = 0.12
+SIMILARITY_THRESHOLD: float = 0.06
 DEFAULT_OLLAMA_URL: str = "http://127.0.0.1:11434"
 DEFAULT_OLLAMA_MODEL: str = "gemma4:e4b"
 
@@ -64,7 +64,7 @@ class LangChainOllamaAdapter:
         self,
         base_url: str | None = None,
         model_name: str | None = None,
-        timeout_seconds: float = 3.5,
+        timeout_seconds: float = 60.0,
     ) -> None:
         self.base_url = (
             base_url or os.environ.get("OLLAMA_BASE_URL") or DEFAULT_OLLAMA_URL
@@ -109,23 +109,7 @@ class LangChainOllamaAdapter:
 
         prompt = self.format_prompt(context=context, question=question)
 
-        # Tentative via langchain_community / langchain_ollama si installé
-        try:
-            from langchain_community.llms import Ollama  # type: ignore
-
-            llm = Ollama(
-                base_url=self.base_url,
-                model=self.model_name,
-                temperature=0.0,
-                timeout=self.timeout_seconds,
-            )
-            generated = str(llm.invoke(prompt)).strip()
-            if generated:
-                return generated, "OLLAMA_ACTIVE"
-        except Exception:
-            pass
-
-        # Appel HTTP direct à l'API locale Ollama (/api/generate)
+        # Appel HTTP direct à l'API locale Ollama (/api/generate) avec keep_alive infini en RAM/VRAM
         try:
             resp = requests.post(
                 f"{self.base_url}/api/generate",
@@ -133,7 +117,9 @@ class LangChainOllamaAdapter:
                     "model": self.model_name,
                     "prompt": prompt,
                     "stream": False,
-                    "options": {"temperature": 0.0, "num_predict": 320},
+                    "think": False,
+                    "keep_alive": -1,
+                    "options": {"temperature": 0.0, "num_predict": 250},
                 },
                 timeout=self.timeout_seconds,
             )
@@ -384,6 +370,20 @@ def create_app(assistant: LocalRAGAssistant | None = None) -> Flask:
         top_k = int(payload.get("top_k", 3))
         result = active_assistant.answer_question(q_text, top_k=top_k)
         return jsonify(result), 200
+
+    @flask_app.get("/metrics")
+    def metrics_endpoint() -> Response:
+        st = active_assistant.get_status()
+        ollama_up = 1 if st["llm_status"] == "OLLAMA_ACTIVE" else 0
+        lines = [
+            "# HELP rag_ollama_active Statut du serveur Ollama local (1=OLLAMA_ACTIVE, 0=OFFLINE_RETRIEVAL_ONLY)",
+            "# TYPE rag_ollama_active gauge",
+            f"rag_ollama_active {ollama_up}",
+            "# HELP rag_indexed_chunks_total Nombre de sections documentaires certifiees indexees",
+            "# TYPE rag_indexed_chunks_total gauge",
+            f"rag_indexed_chunks_total {st['indexed_chunks']}",
+        ]
+        return Response("\n".join(lines) + "\n", mimetype="text/plain; version=0.0.4")
 
     @flask_app.post("/reindex")
     @flask_app.post("/rag/v1/reindex")
