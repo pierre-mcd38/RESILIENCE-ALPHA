@@ -1,6 +1,6 @@
 # PROJECT RESILIENCE-ALPHA — Plateforme de Paiement Cyber-Résiliente & Reprise Autonome
 
-Démonstrateur d'ingénierie réalisé pour le **Workshop National EPSI Bac+5 (Octobre 2026)**.
+Démonstrateur d'ingénierie réalisé pour le **Workshop National EPSI Bac+5 (Octobre 2026)** — **Groupe 2 (`G2`)** : **Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD**.
 
 ---
 
@@ -50,15 +50,14 @@ python tests/run_all_tests.py
 # Pour un déploiement local sur le PC Hôte :
 powershell -ExecutionPolicy Bypass -File .\scripts\up.ps1
 
-# Pour la démonstration sur le Point d'Accès Mobile Windows RESILIENCE-G<n> (192.168.137.1) :
+# Pour la démonstration sur le Point d'Accès Mobile Windows RESILIENCE-G2 (192.168.137.1) :
 $env:HOST_BIND_IP = "192.168.137.1"
 powershell -ExecutionPolicy Bypass -File .\scripts\up.ps1
 ```
 
 ### 3.4 Générer les livrables finaux (`Dossier.pdf`, `Pres.pptx`, `Code.zip`)
 ```powershell
-# Remplacer Gn par le numéro réel du groupe (ex: --group-id G1)
-python scripts/build_deliverables.py --group-id Gn
+python scripts/build_deliverables.py --group-id G2
 ```
 
 ---

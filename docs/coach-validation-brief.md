@@ -18,7 +18,7 @@
 
 ## 2. Scénario de Démonstration et Sécurité du Laboratoire
 
-- **Topologie réseau** : Utilisation exclusive du Point d'Accès sans fil mobile Windows `RESILIENCE-G<n>` (`192.168.137.1/24` sur le PC Hôte).
+- **Topologie réseau** : Utilisation exclusive du Point d'Accès sans fil mobile Windows `RESILIENCE-G2` (`192.168.137.1/24` sur le PC Hôte).
 - **Scénario offensif** : Saturation applicative contrôlée (L7 Resource Exhaustion) depuis le PC Attaquant (`192.168.137.x`) vers la route de vérification par lots `/api/v1/transactions/verify-batch`.
 - **Garde-fous intégrés dans le code offensif (`scenarios/controlled_attack.py`)** :
   1. Liste blanche stricte d'IP cibles (`127.0.0.1`, `192.168.137.1`) — rejet immédiat par code de toute IP du campus (`10.60.0.0/16`) ou publique.
@@ -38,8 +38,8 @@
 
 ---
 
-## 4. Points à Confirmer avec le Coach et l'Équipe
+## 4. Points Confirmés et Points à Valider avec le Coach
 
-- [ ] Numéro officiel du groupe (`G<n>`) attribué par le campus.
-- [ ] Liste nominative des membres du groupe et répartition finale des prises de parole (5 minutes).
-- [ ] Autorisation d'exécuter le tir contrôlé entre le PC Attaquant et le PC Hôte sur le Wi-Fi isolé `RESILIENCE-G<n>` (`192.168.137.0/24`).
+- [x] Numéro officiel du groupe : **Groupe 2 (`G2`)**.
+- [x] Membres du groupe : **Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD**.
+- [ ] Autorisation du coach d'exécuter le tir contrôlé entre le PC Attaquant et le PC Hôte sur le Wi-Fi isolé `RESILIENCE-G2` (`192.168.137.0/24`).

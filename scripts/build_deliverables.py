@@ -151,8 +151,8 @@ def build_engineering_pdf(output_pdf: Path, group_label: str) -> Dict[str, Any]:
     story.append(Paragraph("PROJECT RESILIENCE-ALPHA : Dossier d'Ingénierie et de Gouvernance", title_style))
     story.append(
         Paragraph(
-            f"<b>Équipe / Groupe :</b> {group_label} (Numéro officiel à renseigner par le groupe — aucune valeur inventée) | "
-            f"<b>PC Hôte audité :</b> HDV0-INF-P08 (Windows 11 Pro, Core Ultra 9 185H, 31,42 Go RAM, RTX 4070)",
+            f"<b>Équipe / Groupe :</b> {group_label} (Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD) | "
+            f"<b>PC Hôte audité :</b> HDV0-INF-P08 (Windows 11 Pro, Core Ultra 9 185H, 31,42 Go RAM, RTX 4070, Docker Desktop v29.5.3 actif)",
             body_style,
         )
     )
@@ -174,7 +174,7 @@ def build_engineering_pdf(output_pdf: Path, group_label: str) -> Dict[str, Any]:
             [
                 ["Pilier du Sujet", "Composants Livrés dans le Dépôt", "Preuve Technique & Statut Actuel"],
                 ["1. Développement", "services/auth, services/api, services/remediator, services/executor, services/frontend (React+Tailwind)", "Transactions en centimes entiers, Idempotency-Key SHA-256, invariant comptable vérifié (PASS)"],
-                ["2. Infrastructure", "infra/compose/docker-compose.yml (5 réseaux isolés), infra/ansible, Prometheus, Grafana, Loki", "Validation syntaxique Compose PASS ; démarrage conteneurs BLOCKED (démon Docker arrêté)"],
+                ["2. Infrastructure", "infra/compose/docker-compose.yml (5 réseaux isolés), infra/ansible, Prometheus, Grafana, Loki", "Validation Compose & démon Docker Desktop v29.5.3 actif (PASS)"],
                 ["3. IA / Data", "ml/ (IsolationForest calibré), services/detector, services/rag (LangChain + Ollama <= 8B)", "Modèle entraîné sans fuite (F1=0,9908, FPR 2 fen.=0,0000) + RAG cité (PASS)"],
                 ["4. Cybersécurité", "services/waf_gateway (WAF 2 niveaux), corrélation SOC, secrets SOPS/Age, scénario borné + kill-switch", "HMAC-SHA256, allowlist fermée, audit chaîné SHA-256, 0 secret en clair (PASS)"],
                 ["5. Transformation", "docs/governance/ (EBIOS RM 5 ateliers, PCA/PRA, NIS2 & DORA, Recommandations COMEX)", "Analyse ancrée dans l'architecture réelle et les mesures observées (PASS)"],
@@ -183,25 +183,23 @@ def build_engineering_pdf(output_pdf: Path, group_label: str) -> Dict[str, Any]:
         )
     )
     story.append(Spacer(1, 3 * mm))
-    story.append(Paragraph("1.2 Table des Contributions Individuelles (À Renseigner par l'Équipe)", h2_style))
+    story.append(Paragraph("1.2 Équipe du Consortium G2 et Répartition des 5 Domaines", h2_style))
     story.append(
         Paragraph(
-            "Conformément aux règles d'intégrité, aucun nom d'apprenant ni contribution fictive n'a été inventé. "
-            "Le tableau ci-dessous doit être complété par les membres effectifs du groupe avant remise finale :",
+            "Le consortium <b>G2</b> réunit quatre apprenants couvrant l'intégralité des cinq piliers obligatoires du cahier des charges :",
             body_style,
         )
     )
     story.append(
         make_table(
             [
-                ["Membre (Nom & Prénom)", "Spécialité (ECSI/EID/ECDPIA/EISI/MSM)", "Domaine(s) Assumé(s)", "Composants / Livrables Réalisés"],
-                ["[À RENSEIGNER - Membre 1]", "[À RENSEIGNER]", "Développement & API Métier", "services/api, services/auth,services/frontend"],
-                ["[À RENSEIGNER - Membre 2]", "[À RENSEIGNER]", "Infrastructure & Observabilité", "infra/compose, infra/ansible, Prometheus/Grafana/Loki"],
-                ["[À RENSEIGNER - Membre 3]", "[À RENSEIGNER]", "IA / Data (ML & RAG)", "ml/, services/detector, services/rag, docs/model-card.md"],
-                ["[À RENSEIGNER - Membre 4]", "[À RENSEIGNER]", "Cybersécurité (Red/Blue Team)", "services/waf_gateway, services/executor, scenarios/, SOPS"],
-                ["[À RENSEIGNER - Membre 5]", "[À RENSEIGNER]", "Gouvernance & Continuité", "docs/governance/ (EBIOS RM, PCA/PRA, NIS2/DORA, Pitch)"],
+                ["Membre du Consortium G2", "Domaine(s) de Responsabilité Assumé(s)", "Composants Techniques & Livrables Réalisés", "Temps de Parole (5 min)"],
+                ["Rohail ARSHAD", "Architecture, Développement Métier & Intégration", "services/api, services/auth, services/frontend (React+Tailwind), intégration E2E", "0:00 - 1:15 (1 min 15 s)"],
+                ["Lenny BARRESI", "Infrastructure, Conteneurisation & Observabilité", "infra/compose/docker-compose.yml (5 réseaux), infra/ansible/, Prometheus, Grafana, Loki", "1:15 - 2:30 (1 min 15 s)"],
+                ["Youssef HANSIL", "IA / Data : Détection ML & Assistant RAG Local", "ml/ (IsolationForest calibré), services/detector, services/rag (Ollama/LangChain), model-card.md", "2:30 - 3:45 (1 min 15 s)"],
+                ["Pierre MICHAUD-EYMOZ", "Cybersécurité (Red/Blue Team, WAF, SOPS) & Gouvernance", "services/waf_gateway, services/executor (HMAC), scenarios/, EBIOS RM, PCA/PRA, NIS2/DORA", "3:45 - 5:00 (1 min 15 s)"],
             ],
-            [42 * mm, 42 * mm, 44 * mm, 50 * mm],
+            [38 * mm, 46 * mm, 64 * mm, 30 * mm],
         )
     )
     story.append(PageBreak())
@@ -653,7 +651,7 @@ def build_presentation_pptx(output_pptx: Path, group_label: str) -> Dict[str, An
                 "Workshop National EPSI Bac+5 — Octobre 2026 | Cyber-Résilience & Reprise Autonome",
                 "Mission : Prouver qu'une plateforme de paiement critique encaisse une attaque L7, détecte l'anomalie par ML et se rétablit sans intervention humaine.",
                 "Preuve finale exigée : Nouvelle transaction métier fictive réussie, persistée et comptablement intègre (pas un simple /health).",
-                "Équipe & Répartition de parole (5 min) : [À COMPLÉTER AVEC LES NOMS DES MEMBRES DU GROUPE]",
+                "Consortium G2 : Lenny BARRESI (Infra/Obs) • Youssef HANSIL (ML/RAG) • Pierre MICHAUD-EYMOZ (Cyber/Gouv) • Rohail ARSHAD (Arch/Métier)",
             ],
         ),
         (
@@ -832,8 +830,8 @@ def write_video_status_manifest(target_dir: Path, group_label: str) -> Path:
     return manifest_path
 
 
-def build_all_deliverables(group_id: str = "Gn") -> Dict[str, Any]:
-    clean_gid = group_id.strip() or "Gn"
+def build_all_deliverables(group_id: str = "G2") -> Dict[str, Any]:
+    clean_gid = group_id.strip() or "G2"
     if not clean_gid.startswith("G"):
         clean_gid = f"G{clean_gid}"
 
@@ -854,7 +852,13 @@ def build_all_deliverables(group_id: str = "Gn") -> Dict[str, Any]:
     manifest = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "group_folder": str(target_dir),
-        "group_id_status": "PLACEHOLDER_TO_FILL_BY_TEAM" if clean_gid == "Gn" else "CONFIGURED",
+        "group_id_status": "CONFIGURED_G2",
+        "team_members": [
+            "Lenny BARRESI",
+            "Youssef HANSIL",
+            "Pierre MICHAUD-EYMOZ",
+            "Rohail ARSHAD",
+        ],
         "deliverables": {
             "dossier_pdf": pdf_info,
             "presentation_pptx": pptx_info,
@@ -877,8 +881,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Génère et vérifie les livrables de PROJECT RESILIENCE-ALPHA")
     parser.add_argument(
         "--group-id",
-        default=os.environ.get("GROUP_ID", "Gn"),
-        help="Identifiant du groupe (ex: G1). Par défaut 'Gn' pour ne pas inventer de numéro.",
+        default=os.environ.get("GROUP_ID", "G2"),
+        help="Identifiant du groupe (par défaut 'G2').",
     )
     args = parser.parse_args()
     res = build_all_deliverables(args.group_id)

@@ -27,7 +27,7 @@ services:
 
   auth:
     build:
-      context: ../../services/auth # ./services/auth
+      context: ../../services/auth
       dockerfile: Dockerfile
     image: resilience-alpha/auth:1.0.0
     container_name: resilience-auth
@@ -38,14 +38,10 @@ services:
       - no-new-privileges:true
     environment:
       SERVICE_NAME: auth
-      SERVICE_PORT: "8002"
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-resilience_fictional_jwt_secret_2026}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
-      JWT_EXPIRATION_SECONDS: ${JWT_EXPIRATION_SECONDS:-3600}
-      OPERATOR_DEFAULT_USER: ${OPERATOR_DEFAULT_USER:-operator_alpha}
-      OPERATOR_DEFAULT_PASSWORD: ${OPERATOR_DEFAULT_PASSWORD:-resilience_op_pass_2026}
-      PROBE_SERVICE_USER: ${PROBE_SERVICE_USER:-resilience_probe}
-      PROBE_SERVICE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-resilience_probe_pass_2026}
+      AUTH_PORT: "8002"
+      RESILIENCE_JWT_SECRET: ${JWT_SECRET_KEY:-fictive-lab-jwt-key-do-not-use-in-prod-2026-resilience-alpha}
+      OPERATOR_PASSWORD: ${OPERATOR_DEFAULT_PASSWORD:-FictiveOp#2026!}
+      PROBE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-FictiveProbe#2026!}
     networks:
       app_net:
         ipv4_address: 172.28.20.12
@@ -62,8 +58,8 @@ services:
 
   api:
     build:
-      context: ../../services/api # ./services/api
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/api/Dockerfile
     image: resilience-alpha/api:1.0.0
     container_name: resilience-api
     restart: unless-stopped
@@ -78,11 +74,11 @@ services:
         condition: service_healthy
     environment:
       SERVICE_NAME: api
-      SERVICE_PORT: "8001"
+      API_PORT: "8001"
       DATABASE_URL: postgresql://${POSTGRES_USER:-resilience_app}:${POSTGRES_PASSWORD:-resilience_fictional_db_pass_2026}@postgres:5432/${POSTGRES_DB:-resilience_ledger}
       AUTH_SERVICE_URL: http://auth:8002
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-resilience_fictional_jwt_secret_2026}
-      JWT_ALGORITHM: ${JWT_ALGORITHM:-HS256}
+      RESILIENCE_JWT_SECRET: ${JWT_SECRET_KEY:-fictive-lab-jwt-key-do-not-use-in-prod-2026-resilience-alpha}
+      INTERNAL_CONTROL_TOKEN: ${INTERNAL_CONTROL_TOKEN:-resilience-internal-control-token-2026}
     networks:
       app_net:
         ipv4_address: 172.28.20.11
@@ -101,8 +97,8 @@ services:
 
   waf-gateway:
     build:
-      context: ../../services/waf_gateway # ./services/waf_gateway
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/waf_gateway/Dockerfile
     image: resilience-alpha/waf-gateway:1.0.0
     container_name: resilience-waf-gateway
     restart: unless-stopped
@@ -119,11 +115,12 @@ services:
       - "${HOST_BIND_IP:-127.0.0.1}:8080:8080"
     environment:
       SERVICE_NAME: waf-gateway
-      SERVICE_PORT: "8080"
-      API_UPSTREAM_URL: http://api:8001
-      AUTH_UPSTREAM_URL: http://auth:8002
-      REMEDIATOR_UPSTREAM_URL: http://remediator:8004
-      RAG_UPSTREAM_URL: http://rag:8006
+      WAF_PORT: "8080"
+      API_SERVICE_URL: http://api:8001
+      AUTH_SERVICE_URL: http://auth:8002
+      REMEDIATOR_SERVICE_URL: http://remediator:8004
+      RAG_SERVICE_URL: http://rag:8006
+      INTERNAL_CONTROL_TOKEN: ${INTERNAL_CONTROL_TOKEN:-resilience-internal-control-token-2026}
       WAF_BLOCK_TTL_SECONDS: ${WAF_BLOCK_TTL_SECONDS:-300}
     volumes:
       - ../waf:/etc/resilience-waf:ro
@@ -145,8 +142,8 @@ services:
 
   detector:
     build:
-      context: ../../services/detector # ./services/detector
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/detector/Dockerfile
     image: resilience-alpha/detector:1.0.0
     container_name: resilience-detector
     restart: unless-stopped
@@ -161,12 +158,12 @@ services:
         condition: service_healthy
     environment:
       SERVICE_NAME: detector
-      SERVICE_PORT: "8003"
+      DETECTOR_PORT: "8003"
       WAF_METRICS_URL: http://waf-gateway:8080/metrics
       API_METRICS_URL: http://api:8001/metrics
-      REMEDIATOR_EVENTS_URL: http://remediator:8004/soc/v1/anomaly-events
+      REMEDIATOR_URL: http://remediator:8004
       ML_MODEL_PATH: /app/ml/artifacts/isolation_forest.joblib
-      ML_DECISION_THRESHOLD: ${ML_DECISION_THRESHOLD:--0.0850}
+      ML_DECISION_THRESHOLD: ${ML_DECISION_THRESHOLD:--0.1176}
       ML_WINDOW_SECONDS: ${ML_WINDOW_SECONDS:-5}
     volumes:
       - ../../ml/artifacts:/app/ml/artifacts:ro
@@ -182,8 +179,8 @@ services:
 
   remediator:
     build:
-      context: ../../services/remediator # ./services/remediator
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/remediator/Dockerfile
     image: resilience-alpha/remediator:1.0.0
     container_name: resilience-remediator
     restart: unless-stopped
@@ -200,17 +197,13 @@ services:
         condition: service_healthy
     environment:
       SERVICE_NAME: remediator
-      SERVICE_PORT: "8004"
-      WAF_GATEWAY_URL: http://waf-gateway:8080
+      REMEDIATOR_PORT: "8004"
+      WAF_SERVICE_URL: http://waf-gateway:8080
       API_SERVICE_URL: http://api:8001
       AUTH_SERVICE_URL: http://auth:8002
       EXECUTOR_SERVICE_URL: http://executor:8005
-      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-resilience_fictional_hmac_secret_2026}
-      PROBE_SERVICE_USER: ${PROBE_SERVICE_USER:-resilience_probe}
-      PROBE_SERVICE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-resilience_probe_pass_2026}
-      REMEDIATION_MAX_ATTEMPTS: ${REMEDIATION_MAX_ATTEMPTS:-3}
-      REMEDIATION_COOLDOWN_SECONDS: ${REMEDIATION_COOLDOWN_SECONDS:-15}
-      WAF_BLOCK_TTL_SECONDS: ${WAF_BLOCK_TTL_SECONDS:-300}
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-fictive-lab-executor-hmac-secret-2026-resilience}
+      PROBE_PASSWORD: ${PROBE_SERVICE_PASSWORD:-FictiveProbe#2026!}
     networks:
       app_net:
         ipv4_address: 172.28.20.14
@@ -227,8 +220,8 @@ services:
 
   executor:
     build:
-      context: ../../services/executor # ./services/executor
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/executor/Dockerfile
     image: resilience-alpha/executor:1.0.0
     container_name: resilience-executor
     restart: unless-stopped
@@ -238,12 +231,12 @@ services:
       - no-new-privileges:true
     environment:
       SERVICE_NAME: executor
-      SERVICE_PORT: "8005"
-      WAF_ADMIN_URL: http://waf-gateway:8080/internal/waf
-      API_ADMIN_URL: http://api:8001/internal/admin
-      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-resilience_fictional_hmac_secret_2026}
-      EXECUTOR_TIMESTAMP_TOLERANCE_SECONDS: ${EXECUTOR_TIMESTAMP_TOLERANCE_SECONDS:-30}
-      AUDIT_LOG_PATH: /var/log/resilience-audit/executor_audit.jsonl
+      EXECUTOR_PORT: "8005"
+      WAF_SERVICE_URL: http://waf-gateway:8080
+      API_SERVICE_URL: http://api:8001
+      EXECUTOR_HMAC_SECRET: ${EXECUTOR_HMAC_SECRET:-fictive-lab-executor-hmac-secret-2026-resilience}
+      INTERNAL_CONTROL_TOKEN: ${INTERNAL_CONTROL_TOKEN:-resilience-internal-control-token-2026}
+      EXECUTOR_AUDIT_PATH: /var/log/resilience-audit/executor_audit.jsonl
     volumes:
       - audit_data:/var/log/resilience-audit
     networks:
@@ -258,8 +251,8 @@ services:
 
   rag:
     build:
-      context: ../../services/rag # ./services/rag
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: services/rag/Dockerfile
     image: resilience-alpha/rag:1.0.0
     container_name: resilience-rag
     restart: unless-stopped
@@ -269,7 +262,7 @@ services:
       - no-new-privileges:true
     environment:
       SERVICE_NAME: rag
-      SERVICE_PORT: "8006"
+      RAG_PORT: "8006"
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
       OLLAMA_MODEL: ${OLLAMA_MODEL:-gemma4:e4b}
       RAG_DOCS_ROOT: /app/docs

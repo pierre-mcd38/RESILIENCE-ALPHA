@@ -10,10 +10,10 @@ Date de l'audit initial : `2026-10-19T09:23:00+02:00`
 | :--- | :--- | :--- | :--- |
 | **Projet** | `PROJECT RESILIENCE-ALPHA` | Confirmé | — |
 | **Cadre** | Workshop National EPSI Bac+5 (Sprint 4 jours — Octobre 2026) | Confirmé | — |
-| **Numéro du groupe (`<n>`)** | `À RENSEIGNER` (paramétrable via `GROUP_ID` dans `.env` / script de build, défaut temporaire `G0` non inventé) | **À RENSEIGNER** | Renseigner le numéro officiel attribué par le campus |
-| **Membres et contributions** | `À RENSEIGNER` (table de traçabilité préparée dans le dossier technique et la présentation) | **À RENSEIGNER** | Compléter les noms, filières (ECSI/EID/ECDPIA/EISI/MSM) et rôles effectifs |
-| **PC Hôte** | `HDV0-INF-P08` (`SEYSSINET-PARISET.LOCAL`) — ASUS ROG Zephyrus G16 (`GU605MI`) | **DÉCOUVERT** | Démarrer Docker Desktop et activer le point d'accès mobile Windows |
-| **PC Attaquant** | `À RENSEIGNER` (poste distinct requis sur le réseau `RESILIENCE-G<n>`) | **À RENSEIGNER** | Connecter le 2e PC au Wi-Fi `RESILIENCE-G<n>` et relever son IP (`192.168.137.x`) |
+| **Numéro du groupe (`<n>`)** | `2` (`G2` — Dossier `Workshop2026-M2-G2`, Wi-Fi `RESILIENCE-G2`) | **CONFIRMÉ (`G2`)** | — |
+| **Membres et contributions** | **Lenny BARRESI**, **Youssef HANSIL**, **Pierre MICHAUD-EYMOZ**, **Rohail ARSHAD** (table de traçabilité nominative intégrée au dossier PDF et au PPTX) | **CONFIRMÉ (4 membres)** | — |
+| **PC Hôte** | `HDV0-INF-P08` (`SEYSSINET-PARISET.LOCAL`) — ASUS ROG Zephyrus G16 (`GU605MI`) | **DÉCOUVERT & ACTIF** | Docker Desktop démarré (`v29.5.3`) ; activer le point d'accès mobile `RESILIENCE-G2` (`192.168.137.1`) |
+| **PC Attaquant** | `À RENSEIGNER` (poste distinct requis sur le réseau `RESILIENCE-G2`) | **À CONNECTER** | Connecter le 2e PC au Wi-Fi `RESILIENCE-G2` et relever son IP (`192.168.137.x`) |
 | **PC IA facultatif** | Non requis matériellement (PC Hôte dispose de 31.4 Go RAM + RTX 4070 8 Go VRAM), mais supporté par configuration (`OLLAMA_BASE_URL`) | **DÉCOUVERT / OPTIONNEL** | Confirmer si Ollama reste sur le PC Hôte ou est déporté |
 | **Contraintes du coach** | `À RENSEIGNER` (validation jalon Lundi : architecture + EBIOS RM préparée pour revue) | **À RENSEIGNER** | Faire valider l'architecture et la matrice EBIOS RM par le coach |
 
@@ -39,8 +39,8 @@ Date de l'audit initial : `2026-10-19T09:23:00+02:00`
 | `vEthernet (Default Switch)` | `172.29.16.1` | `/20` | Switch interne Hyper-V |
 | `VMware Network Adapter VMnet8` | `192.168.14.1` | `/24` | Réseau NAT VMware local |
 | `VMware Network Adapter VMnet1` | `192.168.220.1` | `/24` | Réseau Host-Only VMware local |
-| `Connexion au réseau local* 10` | `169.254.193.122` | `/16` | Interface Wi-Fi Direct / Point d'accès mobile Windows (actuellement inactive / APIPA) |
-| **Cible Point d'Accès Groupe** | `192.168.137.1` (attendu) | `/24` | **À ACTIVER** : Point d'accès sans fil mobile Windows `RESILIENCE-G<n>` (exigé par le sujet PDF p.6) |
+| `Connexion au réseau local* 10` | `169.254.193.122` | `/16` | Interface Wi-Fi Direct / Point d'accès mobile Windows (en attente d'activation `RESILIENCE-G2`) |
+| **Cible Point d'Accès Groupe** | `192.168.137.1` (attendu) | `/24` | **À ACTIVER** : Point d'accès sans fil mobile Windows `RESILIENCE-G2` (exigé par le sujet PDF p.6) |
 
 ---
 
@@ -50,8 +50,8 @@ Date de l'audit initial : `2026-10-19T09:23:00+02:00`
 | :--- | :--- | :--- | :--- |
 | **Git** | `PASS` | `C:\Program Files\Git\cmd\git.exe` | Dépôt Git initialisé dans `TP_WORKGROUP`. |
 | **Docker CLI** | `PASS` | `29.5.3, build d1c06ef` | Binaire présent. Contextes : `desktop-linux` et `default`. |
-| **Docker Compose** | `PASS` | `v5.1.4` | Permet la validation syntaxique (`docker compose config`). |
-| **Docker Daemon** | `BLOCKED` | Service `com.docker.service` : `Stopped` | Pipe `//./pipe/dockerDesktopLinuxEngine` absent tant que Docker Desktop n'est pas démarré. `vmcompute` est `Running`. |
+| **Docker Compose** | `PASS` | `v5.1.4` | Validation syntaxique et orchestration (`docker compose config` : `PASS`). |
+| **Docker Daemon** | `PASS` | `ServerVersion=29.5.3` (22 CPUs, 16.46 Go RAM alloués) | Démon Docker Desktop actif et vérifié (`docker info` code retour `0`). |
 | **WSL (`wsl.exe`)** | `BLOCKED` | Absent de `C:\Windows\System32\wsl.exe` | Non installé ou non exposé dans le PATH système. Les scripts du projet sont fournis en PowerShell natif (`.ps1`) et Python multiplateforme (`.py`) pour ne pas dépendre de bash/WSL. |
 | **Python** | `PASS` | `Python 3.13.14` | Bibliothèques déjà présentes : `scikit-learn 1.7.2`, `pandas 2.3.3`, `numpy 2.3.5`, `Flask 3.1.3`, `weasyprint 69.0`, `reportlab 5.0.0`, `cryptography 48.0.0`, `PyYAML 6.0.3`, `requests 2.33.1`, `joblib 1.5.2`. |
 | **Node.js & npm** | `PASS` | `node v22.20.0` / `npm 10.9.3` | Disponibles nativement pour le frontend React + Tailwind. |
