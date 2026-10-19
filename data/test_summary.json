@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-19T08:24:33.642802+00:00",
-  "duration_seconds": 77.07,
+  "timestamp": "2026-10-19T09:45:41.081320+00:00",
+  "duration_seconds": 48.06,
   "unit_and_integration_tests": {
     "total_run": 14,
     "failures": 0,
@@ -42,9 +42,9 @@
       "reason": null
     },
     {
-      "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant -> 192.168.137.1)",
-      "status": "BLOCKED",
-      "reason": "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G<n> (192.168.137.1) et la connexion physique du 2e PC."
+      "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant 192.168.137.135 -> 192.168.137.1)",
+      "status": "PASS",
+      "reason": null
     }
   ]
 }

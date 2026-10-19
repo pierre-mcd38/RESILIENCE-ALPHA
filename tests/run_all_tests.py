@@ -84,9 +84,9 @@ def run_suite() -> Dict[str, Any]:
                 "reason": None if docker_daemon_running else "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur.",
             },
             {
-                "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant -> 192.168.137.1)",
-                "status": "BLOCKED",
-                "reason": "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G<n> (192.168.137.1) et la connexion physique du 2e PC.",
+                "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant 192.168.137.135 -> 192.168.137.1)",
+                "status": "PASS" if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else "BLOCKED",
+                "reason": None if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G2 (192.168.137.1) et la connexion physique du 2e PC.",
             },
         ],
     }

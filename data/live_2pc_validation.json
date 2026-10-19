@@ -1,0 +1,100 @@
+{
+  "status": "PASS",
+  "validated_at": "2026-10-19T09:43:55.591785+00:00",
+  "host_ip": "192.168.137.1",
+  "attacker_pc_ip": "192.168.137.135",
+  "attacker_mac": "74-04-F1-EA-7E-D2",
+  "wifi_ssid": "RESILIENCE-G2",
+  "incident_state": "RECOVERED",
+  "waf_status": {
+    "active_blocked_ips": [
+      {
+        "blocked_at": "2026-10-19T09:42:17.844752+00:00",
+        "blocked_hits": 477,
+        "expires_at": 1792403237.8447492,
+        "ip_address": "192.168.137.135",
+        "reason": "ML IsolationForest anomaly score -0.1875 on incident INC-20261019-2CF85F",
+        "ttl_seconds": 300
+      }
+    ],
+    "dominant_suspect_ip": "127.0.0.1",
+    "metrics": {
+      "waf_allowed_total": 189,
+      "waf_blocked_dynamic_ip_total": 533,
+      "waf_blocked_ratelimit_total": 0,
+      "waf_blocked_signature_total": 0,
+      "waf_requests_total": 722
+    },
+    "rate_limit_profile": "strict_mitigation",
+    "recent_events_count": 500,
+    "service": "waf-gateway",
+    "status": "UP"
+  },
+  "detector_status": {
+    "anomalies_total": 6,
+    "consecutive_anomalies": 0,
+    "inferences_total": 618,
+    "last_is_anomaly": false,
+    "last_score": -0.0404
+  },
+  "autonomous_probe_proof": {
+    "amount_cents": 100,
+    "amount_formatted": "1.00 EUR",
+    "correlation_id": "probe-09718220, probe-09718220",
+    "created_at": "2026-10-19T09:42:17.903765+00:00",
+    "currency": "EUR",
+    "description": "Sonde métier automatique (RECOVERY_VERIFICATION) — INC-20261019-2CF85F",
+    "idempotency_key": "probe-recovery_verification-INC-20261019-2CF85F-93d3b810",
+    "idempotent_replay": false,
+    "initiated_by": "resilience_probe",
+    "proof": {
+      "accounting_invariant_verified": true,
+      "api_health_ok": true,
+      "idempotency_duplicate_prevented": true,
+      "incident_id": "INC-20261019-2CF85F",
+      "mttd_seconds": 2.0,
+      "mttr_seconds": 0.1,
+      "persisted_in_db": true,
+      "post_recovery_latency_ms": 14.48,
+      "probe_amount_cents": 100,
+      "probe_idempotency_key": "probe-recovery_verification-INC-20261019-2CF85F-93d3b810",
+      "probe_tx_id": "tx-fc0319d9-6f01-43b6-b18e-1a69b4163b41",
+      "proof_id": "prf-78f1c18fdb",
+      "stage": "RECOVERY_VERIFICATION",
+      "total_incident_duration_seconds": 2.1,
+      "total_probe_duration_ms": 94.39,
+      "verified_at": "2026-10-19T09:42:17.946318+00:00"
+    },
+    "source_account_id": "ACC-PROBE-SRC",
+    "source_balance_after_cents": 499900,
+    "status": "COMMITTED",
+    "target_account_id": "ACC-PROBE-DST",
+    "target_balance_after_cents": 500100,
+    "transaction_id": "tx-fc0319d9-6f01-43b6-b18e-1a69b4163b41",
+    "tx_id": "tx-fc0319d9-6f01-43b6-b18e-1a69b4163b41"
+  },
+  "operator_t5_transaction": {
+    "amount_cents": 3500,
+    "amount_formatted": "35.00 EUR",
+    "correlation_id": "corr-8c014fd010",
+    "created_at": "2026-10-19T09:43:55.563351+00:00",
+    "currency": "EUR",
+    "description": "Transaction métier T5_POST_2PC (Groupe 2 - Live)",
+    "idempotency_key": "idem-t5_post_2pc-5b1901ec",
+    "idempotent_replay": false,
+    "initiated_by": "operator_alpha",
+    "source_account_id": "ACC-FR-001",
+    "source_balance_after_cents": 989000,
+    "status": "COMMITTED",
+    "target_account_id": "ACC-FR-002",
+    "target_balance_after_cents": 511000,
+    "transaction_id": "tx-26f93f2e-756d-439b-8131-68936f699791",
+    "tx_id": "tx-26f93f2e-756d-439b-8131-68936f699791"
+  },
+  "ledger_invariant": {
+    "accounts_count": 5,
+    "actual_total_cents": 2750000,
+    "consistent": true,
+    "expected_total_cents": 2750000
+  }
+}

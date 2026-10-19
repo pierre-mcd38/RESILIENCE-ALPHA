@@ -12,8 +12,8 @@ Date de l'audit initial : `2026-10-19T09:23:00+02:00`
 | **Cadre** | Workshop National EPSI Bac+5 (Sprint 4 jours — Octobre 2026) | Confirmé | — |
 | **Numéro du groupe (`<n>`)** | `2` (`G2` — Dossier `Workshop2026-M2-G2`, Wi-Fi `RESILIENCE-G2`) | **CONFIRMÉ (`G2`)** | — |
 | **Membres et contributions** | **Lenny BARRESI**, **Youssef HANSIL**, **Pierre MICHAUD-EYMOZ**, **Rohail ARSHAD** (table de traçabilité nominative intégrée au dossier PDF et au PPTX) | **CONFIRMÉ (4 membres)** | — |
-| **PC Hôte** | `HDV0-INF-P08` (`SEYSSINET-PARISET.LOCAL`) — ASUS ROG Zephyrus G16 (`GU605MI`) | **DÉCOUVERT & ACTIF** | Docker Desktop démarré (`v29.5.3`) ; activer le point d'accès mobile `RESILIENCE-G2` (`192.168.137.1`) |
-| **PC Attaquant** | `À RENSEIGNER` (poste distinct requis sur le réseau `RESILIENCE-G2`) | **À CONNECTER** | Connecter le 2e PC au Wi-Fi `RESILIENCE-G2` et relever son IP (`192.168.137.x`) |
+| **PC Hôte** | `HDV0-INF-P08` (`SEYSSINET-PARISET.LOCAL`) — ASUS ROG Zephyrus G16 (`GU605MI`) | **CONFIRMÉ & ACTIF** | Docker Desktop actif (`v29.5.3`) ; Point d'accès `RESILIENCE-G2` actif (`192.168.137.1/24`) |
+| **PC Attaquant** | Poste 2 connecté sur `RESILIENCE-G2` — IP **`192.168.137.135`** (`MAC : 74-04-F1-EA-7E-D2`) | **CONFIRMÉ & TESTÉ (`PASS`)** | Tir contrôlé réel exécuté vers `192.168.137.1:8080`, détecté par `IsolationForest` (`MTTD=2,0s`), bloqué dynamiquement (`533` requêtes `HTTP 403`) et suivi de `RECOVERED` (`MTTR=0,10s`) |
 | **PC IA facultatif** | Non requis matériellement (PC Hôte dispose de 31.4 Go RAM + RTX 4070 8 Go VRAM), mais supporté par configuration (`OLLAMA_BASE_URL`) | **DÉCOUVERT / OPTIONNEL** | Confirmer si Ollama reste sur le PC Hôte ou est déporté |
 | **Contraintes du coach** | `À RENSEIGNER` (validation jalon Lundi : architecture + EBIOS RM préparée pour revue) | **À RENSEIGNER** | Faire valider l'architecture et la matrice EBIOS RM par le coach |
 
@@ -39,8 +39,7 @@ Date de l'audit initial : `2026-10-19T09:23:00+02:00`
 | `vEthernet (Default Switch)` | `172.29.16.1` | `/20` | Switch interne Hyper-V |
 | `VMware Network Adapter VMnet8` | `192.168.14.1` | `/24` | Réseau NAT VMware local |
 | `VMware Network Adapter VMnet1` | `192.168.220.1` | `/24` | Réseau Host-Only VMware local |
-| `Connexion au réseau local* 10` | `169.254.193.122` | `/16` | Interface Wi-Fi Direct / Point d'accès mobile Windows (en attente d'activation `RESILIENCE-G2`) |
-| **Cible Point d'Accès Groupe** | `192.168.137.1` (attendu) | `/24` | **À ACTIVER** : Point d'accès sans fil mobile Windows `RESILIENCE-G2` (exigé par le sujet PDF p.6) |
+| `Connexion au réseau local* 10` | `192.168.137.1` | `/24` | **ACTIF (`PASS`)** : Point d'accès sans fil mobile Windows `RESILIENCE-G2` (2e PC connecté en `192.168.137.135`) |
 
 ---
 
