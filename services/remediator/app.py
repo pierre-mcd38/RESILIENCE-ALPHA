@@ -642,7 +642,23 @@ def create_remediator_app(orchestrator: Optional[RemediationOrchestrator] = None
     @app.route("/metrics", methods=["GET"])
     def metrics() -> Response:
         m = orch.metrics
+        state_map = {
+            "NORMAL": 0,
+            "SUSPECT": 1,
+            "INCIDENT": 2,
+            "REMEDIATING": 3,
+            "VERIFYING": 4,
+            "RECOVERED": 5,
+            "FAILED": 6,
+        }
+        state_code = state_map.get(orch.state, 0)
         lines = [
+            "# HELP remediator_state_code Etat courant de l'automate (0=NORMAL,1=SUSPECT,2=INCIDENT,3=REMEDIATING,4=VERIFYING,5=RECOVERED,6=FAILED)",
+            "# TYPE remediator_state_code gauge",
+            f"remediator_state_code {state_code}",
+            "# HELP resilience_incident_state_code Alias de remediator_state_code pour le dashboard Grafana",
+            "# TYPE resilience_incident_state_code gauge",
+            f"resilience_incident_state_code {state_code}",
             "# HELP remediator_incidents_total Nombre total d'incidents confirmes",
             "# TYPE remediator_incidents_total counter",
             f"remediator_incidents_total {m['remediator_incidents_total']}",

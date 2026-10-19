@@ -50,7 +50,9 @@
             "steps": [
               { "color": "green", "value": null },
               { "color": "yellow", "value": 1 },
-              { "color": "red", "value": 2 }
+              { "color": "red", "value": 2 },
+              { "color": "dark-green", "value": 5 },
+              { "color": "red", "value": 6 }
             ]
           }
         },
@@ -74,7 +76,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "resilience_incident_state_code",
+          "expr": "remediator_state_code",
           "legendFormat": "Automate SOC",
           "refId": "A"
         }
@@ -88,13 +90,13 @@
       "fieldConfig": {
         "defaults": {
           "min": -0.4,
-          "max": 0.3,
+          "max": 0.2,
           "thresholds": {
             "mode": "absolute",
             "steps": [
               { "color": "red", "value": null },
-              { "color": "orange", "value": -0.085 },
-              { "color": "green", "value": 0.0 }
+              { "color": "orange", "value": -0.1176 },
+              { "color": "green", "value": -0.05 }
             ]
           }
         },
@@ -102,11 +104,11 @@
       },
       "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
       "id": 2,
-      "title": "Score ML IsolationForest (Seuil = -0.085)",
+      "title": "Score ML IsolationForest (Seuil = -0.1176)",
       "type": "gauge",
       "targets": [
         {
-          "expr": "resilience_ml_anomaly_score",
+          "expr": "detector_anomaly_score",
           "legendFormat": "Score ML",
           "refId": "A"
         }
@@ -125,16 +127,16 @@
       },
       "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
       "id": 3,
-      "title": "Latence P95 API Métier (ms) & Saturation Workers",
+      "title": "Latence P95 API Métier (ms) & Saturation Workers (%)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "resilience_api_latency_p95_ms",
+          "expr": "api_latency_p95_ms",
           "legendFormat": "Latence P95 (ms)",
           "refId": "A"
         },
         {
-          "expr": "resilience_api_worker_saturation_ratio * 100",
+          "expr": "api_cpu_worker_saturation * 100",
           "legendFormat": "Saturation Workers (%)",
           "refId": "B"
         }
@@ -147,24 +149,29 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "reqps"
+          "unit": "short"
         },
         "overrides": []
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
       "id": 4,
-      "title": "Débit WAF : Requêtes Autorisées vs Bloquées (Mitigation Dynamique)",
+      "title": "Trafic WAF : Requêtes Autorisées vs Bloquées par Liste Dynamique AIOps",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "rate(resilience_waf_requests_total{action=\"ALLOWED\"}[10s])",
-          "legendFormat": "Autorisées (RPS)",
+          "expr": "waf_allowed_total",
+          "legendFormat": "Autorisées (Total)",
           "refId": "A"
         },
         {
-          "expr": "rate(resilience_waf_requests_total{action=~\"BLOCKED.*\"}[10s])",
-          "legendFormat": "Bloquées WAF Dynamique (RPS)",
+          "expr": "waf_blocked_dynamic_ip_total",
+          "legendFormat": "Bloquées WAF Dynamique IP (Total)",
           "refId": "B"
+        },
+        {
+          "expr": "waf_requests_total",
+          "legendFormat": "Total Inspectées WAF",
+          "refId": "C"
         }
       ]
     },
@@ -181,17 +188,78 @@
       },
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
       "id": 5,
-      "title": "Transactions Métier Persistées (COMMITTED) & Preuves de Reprise",
+      "title": "Transactions Métier Persistées (COMMITTED) & Preuves de Reprise (T5)",
       "type": "timeseries",
       "targets": [
         {
-          "expr": "resilience_transactions_committed_total",
+          "expr": "api_transactions_committed_total",
           "legendFormat": "Transactions COMMITTED",
           "refId": "A"
         },
         {
-          "expr": "resilience_recovery_proofs_verified_total",
+          "expr": "remediator_recoveries_total",
           "legendFormat": "Preuves Métier Post-Incident (T5)",
+          "refId": "B"
+        },
+        {
+          "expr": "api_worker_recycles_total",
+          "legendFormat": "Recyclages Workers",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 0, "y": 14 },
+      "id": 6,
+      "title": "Indicateurs de Résilience : MTTD & MTTR (secondes)",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "remediator_last_mttd_seconds",
+          "legendFormat": "MTTD (Détection ML)",
+          "refId": "A"
+        },
+        {
+          "expr": "remediator_last_mttr_seconds",
+          "legendFormat": "MTTR (Remédiation + Sonde T5)",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus_ds"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": { "h": 6, "w": 12, "x": 12, "y": 14 },
+      "id": 7,
+      "title": "Inférences ML IsolationForest & Fenêtres Anormales",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "detector_inferences_total",
+          "legendFormat": "Fenêtres Évaluées",
+          "refId": "A"
+        },
+        {
+          "expr": "detector_anomalies_total",
+          "legendFormat": "Fenêtres Anormales Détectées",
           "refId": "B"
         }
       ]
@@ -205,5 +273,5 @@
   "timezone": "browser",
   "title": "RESILIENCE-ALPHA — Supervision Métier, ML & Zero-Touch Recovery",
   "uid": "resilience-alpha-main",
-  "version": 1
+  "version": 2
 }
