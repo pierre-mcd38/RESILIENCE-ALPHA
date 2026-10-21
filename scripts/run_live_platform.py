@@ -890,6 +890,188 @@ Write-Host "==========================================================" -Foregro
 """
 
 
+WAF_GATEWAY_HTML = """<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>PROJECT RESILIENCE-ALPHA — Passerelle WAF & Reverse-Proxy (Port 8080)</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: #121826;
+      --border: #1e293b;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --rose: #f43f5e;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 28px 20px; max-width: 1040px; margin: 0 auto; line-height: 1.5; }
+    .header { background: linear-gradient(135deg, #0e172a 0%, #16243d 100%); border: 1px solid #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
+    .title-box h1 { font-size: 1.45rem; font-weight: 800; color: #38bdf8; letter-spacing: -0.02em; display: flex; align-items: center; gap: 10px; }
+    .title-box p { color: var(--muted); font-size: 0.88rem; margin-top: 4px; }
+    .status-pill { background: #064e3b; color: #6ee7b7; border: 1px solid #059669; padding: 6px 14px; border-radius: 999px; font-size: 0.82rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 20px; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; transition: transform 0.15s, border-color 0.15s; }
+    .card:hover { border-color: #38bdf8; transform: translateY(-2px); }
+    .card h2 { font-size: 1.1rem; color: #f8fafc; margin-bottom: 8px; display: flex; align-items: center; gap: 8px; }
+    .card p { font-size: 0.86rem; color: var(--muted); margin-bottom: 16px; min-height: 40px; }
+    .btn-action { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px 18px; border-radius: 8px; font-weight: 700; font-size: 0.92rem; text-decoration: none; cursor: pointer; border: none; transition: background 0.15s; }
+    .btn-cyan { background: #0284c7; color: white; }
+    .btn-cyan:hover { background: #0369a1; }
+    .btn-red { background: #e11d48; color: white; }
+    .btn-red:hover { background: #be123c; }
+
+    .live-status { background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .live-status h3 { font-size: 0.98rem; color: #cbd5e1; margin-bottom: 14px; border-bottom: 1px solid #1e293b; padding-bottom: 8px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .stat-box { background: #0a0f1d; border: 1px solid #1e293b; border-radius: 8px; padding: 12px; text-align: center; }
+    .stat-label { font-size: 0.76rem; color: var(--muted); text-transform: uppercase; }
+    .stat-val { font-size: 1.35rem; font-weight: 800; font-family: Consolas, monospace; color: #38bdf8; margin-top: 4px; }
+    .stat-val.red { color: #f43f5e; }
+    .stat-val.green { color: #34d399; }
+
+    .routes-table { width: 100%; border-collapse: collapse; font-size: 0.84rem; margin-top: 8px; }
+    .routes-table th { text-align: left; padding: 10px 12px; background: #0a0f1d; color: #94a3b8; font-weight: 600; border-bottom: 1px solid var(--border); }
+    .routes-table td { padding: 10px 12px; border-bottom: 1px solid #172033; }
+    .routes-table code { font-family: Consolas, monospace; color: #38bdf8; background: #0b1329; padding: 3px 6px; border-radius: 4px; }
+    .method-badge { display: inline-block; font-size: 0.72rem; font-weight: 800; padding: 2px 6px; border-radius: 4px; font-family: Consolas, monospace; }
+    .m-post { background: #1e3a8a; color: #93c5fd; }
+    .m-get { background: #064e3b; color: #6ee7b7; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title-box">
+      <h1>🛡️ Passerelle WAF & Reverse-Proxy API (Port 8080)</h1>
+      <p>PROJECT RESILIENCE-ALPHA — Point d'entrée d'ingestion réseau sécurisé avec ModSecurity & Blocklist Dynamique</p>
+    </div>
+    <div class="status-pill" id="waf-status-pill">WAF EN LIGNE</div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h2>🖥️ Centre de Contrôle SOC & IA (Port 3000)</h2>
+      <p>Interface principale des opérateurs de cyber-résilience : supervision temps réel, radar IsolationForest, chronologie T0&rarr;T5 et copilote Ollama.</p>
+      <a class="btn-action btn-cyan" href="http://127.0.0.1:3000" target="_blank">
+        Ouvrir le Centre de Contrôle (Port 3000) &rarr;
+      </a>
+    </div>
+
+    <div class="card">
+      <h2>🎯 Console de Tir Attaquant (Port 8080)</h2>
+      <p>Interface offensive dédiée au 2ᵉ PC connecté au point d'accès Wi-Fi : lance les attaques Flood L7, Brute-Force Auth, Injections SQLi/XSS.</p>
+      <a class="btn-action btn-red" href="/attacker">
+        Ouvrir la Console Attaquant (/attacker) &rarr;
+      </a>
+    </div>
+  </div>
+
+  <div class="live-status">
+    <h3>État Temps Réel de la Passerelle WAF</h3>
+    <div class="stats-row">
+      <div class="stat-box">
+        <div class="stat-label">Profil de Filtrage</div>
+        <div class="stat-val green" id="stat-profile">NORMAL</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">IP Bloquées Dynamiquement</div>
+        <div class="stat-val" id="stat-blocked-count">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Attaques Rejetées (403)</div>
+        <div class="stat-val red" id="stat-blocked-hits">0</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Automate de Résilience</div>
+        <div class="stat-val green" id="stat-state">NORMAL</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;font-size:0.83rem;color:#94a3b8">
+      <strong>IP bannies en ce moment :</strong> <span id="stat-blocked-ips" style="color:#f87171;font-family:Consolas,monospace">Aucune</span>
+    </div>
+  </div>
+
+  <div class="live-status">
+    <h3>Endpoints Métier Protégés par ce Reverse-Proxy</h3>
+    <table class="routes-table">
+      <thead>
+        <tr>
+          <th>Méthode</th>
+          <th>Chemin d'accès (Path)</th>
+          <th>Service Cible</th>
+          <th>Protection Appliquée</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="method-badge m-post">POST</span></td>
+          <td><code>/auth/v1/token</code></td>
+          <td><code>services/auth:8002</code></td>
+          <td>Rate-limit 30 rps/ip &amp; Surveillance Brute-Force</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge m-post">POST</span></td>
+          <td><code>/api/v1/transactions</code></td>
+          <td><code>services/api:8001</code></td>
+          <td>Vérification JWT, Idempotence, Invariant ACID</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge m-post">POST</span></td>
+          <td><code>/api/v1/transactions/verify-batch</code></td>
+          <td><code>services/api:8001</code></td>
+          <td>Anti-DoS L7, IsolationForest CPU/latence P95</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge m-get">GET</span></td>
+          <td><code>/attacker</code></td>
+          <td>Console Locale</td>
+          <td>Allowlist réseau strict (Point d'accès groupe)</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge m-get">GET</span></td>
+          <td><code>/metrics</code></td>
+          <td>WAF Telemetry</td>
+          <td>Format Prometheus standard</td>
+        </tr>
+        <tr>
+          <td><span class="method-badge m-get">GET</span></td>
+          <td><code>/health</code></td>
+          <td>Santé Passerelle</td>
+          <td>Vérification disponibilité WAF &amp; backends</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    async function refreshWaf() {
+      try {
+        const res = await fetch('/live/v1/summary');
+        const d = await res.json();
+        document.getElementById('stat-profile').textContent = (d.waf.rate_limit_profile || 'normal').toUpperCase();
+        const bl = d.waf.active_blocked_ips || [];
+        document.getElementById('stat-blocked-count').textContent = bl.length;
+        document.getElementById('stat-blocked-ips').textContent = bl.length ? bl.map(x => x.ip_address).join(', ') : 'Aucune';
+        const total = (d.waf.metrics.waf_blocked_dynamic_ip_total || 0) +
+                      (d.waf.metrics.waf_blocked_ratelimit_total || 0) +
+                      (d.waf.metrics.waf_blocked_signature_total || 0);
+        document.getElementById('stat-blocked-hits').textContent = total;
+        const st = (d.remediator && d.remediator.state) || 'NORMAL';
+        document.getElementById('stat-state').textContent = st;
+      } catch (e) {}
+    }
+    setInterval(refreshWaf, 1500);
+    refreshWaf();
+  </script>
+</body>
+</html>
+"""
+
+
 class LiveResilienceCluster:
     """Cluster temps réel exposant les microservices avec l'IA (IsolationForest + Ollama) au premier plan."""
 
@@ -955,9 +1137,9 @@ class LiveResilienceCluster:
             "• Référentiel certifié : [Source: docs/decisions/ADR-002-ml-anomaly-detection.md] [Source: docs/governance/pca-pra.md]"
         )
 
-        self._attach_live_routes(self.waf_app)
+        self._attach_live_routes(self.waf_app, is_waf=True)
         self.frontend_app = Flask("resilience_frontend_live")
-        self._attach_live_routes(self.frontend_app)
+        self._attach_live_routes(self.frontend_app, is_waf=False)
 
         self._running = True
         self._servers = []
@@ -1173,8 +1355,13 @@ class LiveResilienceCluster:
         )
         return {"transaction": tx_data, "invariant": inv}
 
-    def _attach_live_routes(self, app: Flask) -> None:
+    def _attach_live_routes(self, app: Flask, is_waf: bool = False) -> None:
         @app.route("/", methods=["GET"])
+        def index_page() -> Response:
+            if is_waf:
+                return Response(WAF_GATEWAY_HTML, mimetype="text/html")
+            return Response(DASHBOARD_HTML, mimetype="text/html")
+
         @app.route("/dashboard", methods=["GET"])
         def index_dashboard() -> Response:
             return Response(DASHBOARD_HTML, mimetype="text/html")
