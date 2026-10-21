@@ -282,10 +282,22 @@ class LocalRAGAssistant:
             "metrique", "métrique", "transaction", "bloque", "bloquée",
             "waf", "score", "rapport", "situation", "direct", "live", "système", "systeme"
         )
-        is_live_query = any(kw in clean_query.lower() for kw in LIVE_STATUS_KEYWORDS)
+        GREETING_KEYWORDS = (
+            "salut", "bonjour", "bonsoir", "hello", "hi", "coucou", "hey",
+            "qui es-tu", "qui est tu", "tu es qui", "presente-toi", "présente-toi",
+            "ton role", "ton rôle", "que fais-tu", "que sais-tu faire",
+            "aide-moi", "aide", "presentation", "présentation", "merci",
+            "ça va", "ca va", "comment vas-tu", "comment ca va"
+        )
+        
+        lower_q = clean_query.lower().strip()
+        words = set(re.findall(r"\w+", lower_q))
+        
+        is_live_query = any(kw in lower_q for kw in LIVE_STATUS_KEYWORDS)
+        is_greeting = any(kw in lower_q for kw in GREETING_KEYWORDS) or words.intersection({"salut", "bonjour", "hello", "hi", "coucou", "hey"})
 
-        # Garde-fou anti-hallucination strict : refus si similarité < 0.040 (hors requête opérationnelle temps réel)
-        if (not hits or max_score < self.similarity_threshold) and not is_live_query:
+        # Garde-fou anti-hallucination strict : refus si similarité < 0.040 (hors salutations et supervision temps réel)
+        if (not hits or max_score < self.similarity_threshold) and not is_live_query and not is_greeting:
             is_online, _ = self.llm_adapter.check_ollama_online()
             return {
                 "query": clean_query,
@@ -312,14 +324,27 @@ class LocalRAGAssistant:
         qualified_hits = [
             h for h in hits if float(h["similarity_score"]) >= self.similarity_threshold
         ]
-        if not qualified_hits and is_live_query:
-            qualified_hits = [{
-                "citation": "[Source: telemetry/soc-dashboard#LiveStatus]",
-                "excerpt": f"Télémétrie opérationnelle en direct :\n{live_telemetry}",
-                "source_file": "telemetry/soc-dashboard",
-                "section_title": "LiveStatus",
-                "similarity_score": 1.0,
-            }]
+        if not qualified_hits:
+            if is_greeting:
+                qualified_hits = [{
+                    "citation": "[Source: docs/architecture.md#ADR-005 : Assistant RAG Local]",
+                    "excerpt": (
+                        "Tu es l'assistant IA et copilote de supervision opérationnelle de PROJECT RESILIENCE-ALPHA (Groupe 2 : Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD).\n"
+                        "Tu es spécialisé dans la cyber-résilience de la plateforme bancaire, l'analyse des métriques en temps réel, le modèle Isolation Forest et les procédures certifiées.\n"
+                        f"État actuel du système :\n{live_telemetry}"
+                    ),
+                    "source_file": "docs/architecture.md",
+                    "section_title": "Assistant RAG Local",
+                    "similarity_score": 1.0,
+                }]
+            elif is_live_query:
+                qualified_hits = [{
+                    "citation": "[Source: telemetry/soc-dashboard#LiveStatus]",
+                    "excerpt": f"Télémétrie opérationnelle en direct :\n{live_telemetry}",
+                    "source_file": "telemetry/soc-dashboard",
+                    "section_title": "LiveStatus",
+                    "similarity_score": 1.0,
+                }]
         citations = [h["citation"] for h in qualified_hits]
         context_block = "\n\n".join(
             f"{h['citation']}\n{h['excerpt']}" for h in qualified_hits

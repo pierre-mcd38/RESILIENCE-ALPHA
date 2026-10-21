@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-21T09:42:32.443921+00:00",
+  "generated_at": "2026-10-21T09:53:51.357114+00:00",
   "group_folder": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2",
   "group_id_status": "CONFIGURED_G2",
   "team_members": [
@@ -12,7 +12,7 @@
     "dossier_pdf": {
       "file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-Dossier.pdf",
       "exists": true,
-      "size_bytes": 34723,
+      "size_bytes": 34728,
       "num_pages": 10,
       "within_8_to_12_pages_target": true,
       "readable_text_verified": true
@@ -20,15 +20,15 @@
     "presentation_pptx": {
       "file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-Pres.pptx",
       "exists": true,
-      "size_bytes": 4784075,
+      "size_bytes": 4784074,
       "slides_count": 7,
       "xml_verified": true
     },
     "code_zip": {
       "file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-Code.zip",
       "exists": true,
-      "size_bytes": 1094417,
-      "files_count": 131,
+      "size_bytes": 1096419,
+      "files_count": 132,
       "zip_crc_ok": true,
       "has_readme_and_compose": true,
       "zero_secret_or_key_files": true
