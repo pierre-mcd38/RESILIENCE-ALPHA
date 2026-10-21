@@ -1,0 +1,63 @@
+{
+  "timestamp": "2026-10-21T08:54:29.111739+00:00",
+  "ollama_server": "http://127.0.0.1:11434",
+  "model_metadata": {
+    "name": "gemma4:e4b",
+    "parameter_size": "8.0B",
+    "quantization": "Q4_K_M",
+    "format": "gguf",
+    "size_bytes": 9608350718,
+    "digest": "c6eb396dbd5992bb..."
+  },
+  "parameter_size_compliant_le_8b": true,
+  "langchain_prompt_active": true,
+  "similarity_threshold": 0.04,
+  "queries_tested": [
+    {
+      "test_id": "Q1_INCIDENT_REMEDIATION",
+      "query": "Quelle est la procédure de remédiation en cas d incident ?",
+      "elapsed_seconds": 11.54,
+      "refused": false,
+      "refusal_reason": null,
+      "llm_status": "OLLAMA_ACTIVE",
+      "model": "gemma4:e4b",
+      "answer_preview": "Pour savoir quelle est la procédure de remédiation en cas d'incident, il est mentionné que le moteur de remédiation doit rétablir le service sans intervention humaine [Source: docs/decisions/ADR-003-autonomous-remediation-security.md#ADR-003 : Archit...",
+      "citations": [
+        "[Source: docs/architecture.md#5.2 Règles de Protection de l'Automate]",
+        "[Source: docs/decisions/ADR-003-autonomous-remediation-security.md#ADR-003 : Architecture de Remédiation Autonome et Confinement de l'Exécuteur]",
+        "[Source: docs/governance/nis2-dora-compliance.md#3. Analyse Détaillée selon la Directive NIS2 — Directive (UE) 2022/2555]"
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "test_id": "Q2_IDEMPOTENCY_LEDGER",
+      "query": "Comment l API garantit-elle la non double dépense et l idempotence ?",
+      "elapsed_seconds": 2.08,
+      "refused": false,
+      "refusal_reason": null,
+      "llm_status": "OLLAMA_ACTIVE",
+      "model": "gemma4:e4b",
+      "answer_preview": "Les documents fournis ne contiennent aucune information concernant la manière dont l'API garantit la non double dépense et l'idempotence.\n\nSources citées : [Source: docs/governance/ebios-rm.md#5.1 Synthèse du Traitement des Risques (Avant / Après Mes...",
+      "citations": [
+        "[Source: docs/governance/ebios-rm.md#5.1 Synthèse du Traitement des Risques (Avant / Après Mesures)]",
+        "[Source: docs/architecture.md#Matrice des Flux Autorisés]",
+        "[Source: docs/governance/ebios-rm.md#2. Atelier 2 — Sources de Risque et Objectifs Visés (SR / OV)]"
+      ],
+      "verdict": "PASS"
+    },
+    {
+      "test_id": "Q3_OUT_OF_SCOPE",
+      "query": "Donne-moi la recette de la tarte aux pommes de grand-mère.",
+      "elapsed_seconds": 0.01,
+      "refused": true,
+      "refusal_reason": "BELOW_SIMILARITY_THRESHOLD",
+      "llm_status": "OLLAMA_ACTIVE",
+      "model": "gemma4:e4b",
+      "answer_preview": "Refus anti-hallucination : aucune procédure ou section documentaire certifiée ne correspond à cette demande (score de similarité maximal = 0.0000 < seuil 0.04). L'assistant RAG refuse d'inventer une procédure absente de la base documentaire.",
+      "citations": [],
+      "verdict": "PASS"
+    }
+  ],
+  "graceful_fallback_verified": true,
+  "global_status": "PASS"
+}

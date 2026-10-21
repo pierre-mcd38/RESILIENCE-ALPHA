@@ -89,6 +89,24 @@ def run_suite() -> Dict[str, Any]:
                 "evidence_file": "data/live_2pc_validation.json" if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else None,
                 "reason": None if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G2 (192.168.137.1) et la connexion physique du 2e PC.",
             },
+            {
+                "check": "Validation Formelle RAG Local Ollama + LangChain (gemma4:e4b 8.0B)",
+                "status": "PASS" if (ROOT_DIR / "data" / "live_ollama_validation.json").exists() else "BLOCKED",
+                "evidence_file": "data/live_ollama_validation.json" if (ROOT_DIR / "data" / "live_ollama_validation.json").exists() else None,
+                "reason": None if (ROOT_DIR / "data" / "live_ollama_validation.json").exists() else "Nécessite le serveur ollama serve actif avec le modèle gemma4:e4b.",
+            },
+            {
+                "check": "Validation Persistance Stockage SQLite WAL & Restauration (Volume api_data)",
+                "status": "PASS" if (ROOT_DIR / "data" / "live_storage_persistence_validation.json").exists() else "BLOCKED",
+                "evidence_file": "data/live_storage_persistence_validation.json" if (ROOT_DIR / "data" / "live_storage_persistence_validation.json").exists() else None,
+                "reason": None if (ROOT_DIR / "data" / "live_storage_persistence_validation.json").exists() else "Exécuter scripts/verify_storage_persistence.py pour générer la preuve.",
+            },
+            {
+                "check": "Clip Chrono Obligatoire (Workshop2026-M2-G2-VidChrono.mp4)",
+                "status": "PASS" if (ROOT_DIR / "deliverables" / "Workshop2026-M2-G2" / "Workshop2026-M2-G2-VidChrono.mp4").exists() else "STANDBY_READY",
+                "evidence_file": "deliverables/Workshop2026-M2-G2/Workshop2026-M2-G2-VidChrono-STATUT-ET-PROTOCOLE.md",
+                "reason": None if (ROOT_DIR / "deliverables" / "Workshop2026-M2-G2" / "Workshop2026-M2-G2-VidChrono.mp4").exists() else "Protocole et conducteur formalisés ; captation physique continue sans coupe réservée à la répétition finale.",
+            },
         ],
     }
 

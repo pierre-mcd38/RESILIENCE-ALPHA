@@ -107,6 +107,24 @@ class MlAndRagTestCase(unittest.TestCase):
         self.assertTrue(body_inj["refused"])
         self.assertTrue(body_inj.get("prompt_injection_blocked", False))
 
+    def test_03_live_ollama_generation_and_evidence(self) -> None:
+        """Vérifie l'inférence générative réelle avec Ollama et le modèle local gemma4:e4b."""
+        from services.rag.app import LocalRAGAssistant
+        rag_live = LocalRAGAssistant(
+            ollama_base_url="http://127.0.0.1:11434",
+            ollama_model="gemma4:e4b",
+        )
+        online, models = rag_live.llm_adapter.check_ollama_online()
+        if not online:
+            self.skipTest("Serveur Ollama non joignable sur http://127.0.0.1:11434")
+
+        res = rag_live.answer_question("Quelle est la procédure de remédiation en cas d incident ?")
+        self.assertEqual(res["llm_status"], "OLLAMA_ACTIVE")
+        self.assertEqual(res["model"], "gemma4:e4b")
+        self.assertFalse(res["refused"])
+        self.assertGreaterEqual(len(res["citations"]), 1)
+        self.assertIn("[Source:", res["answer"])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-10-21T08:15:53.125577+00:00",
-  "duration_seconds": 59.92,
+  "timestamp": "2026-10-21T09:00:37.094507+00:00",
+  "duration_seconds": 65.42,
   "unit_and_integration_tests": {
-    "total_run": 14,
+    "total_run": 15,
     "failures": 0,
     "errors": 0,
     "status": "PASS"
@@ -46,6 +46,24 @@
       "status": "PASS",
       "evidence_file": "data/live_2pc_validation.json",
       "reason": null
+    },
+    {
+      "check": "Validation Formelle RAG Local Ollama + LangChain (gemma4:e4b 8.0B)",
+      "status": "PASS",
+      "evidence_file": "data/live_ollama_validation.json",
+      "reason": null
+    },
+    {
+      "check": "Validation Persistance Stockage SQLite WAL & Restauration (Volume api_data)",
+      "status": "PASS",
+      "evidence_file": "data/live_storage_persistence_validation.json",
+      "reason": null
+    },
+    {
+      "check": "Clip Chrono Obligatoire (Workshop2026-M2-G2-VidChrono.mp4)",
+      "status": "STANDBY_READY",
+      "evidence_file": "deliverables/Workshop2026-M2-G2/Workshop2026-M2-G2-VidChrono-STATUT-ET-PROTOCOLE.md",
+      "reason": "Protocole et conducteur formalisés ; captation physique continue sans coupe réservée à la répétition finale."
     }
   ]
 }

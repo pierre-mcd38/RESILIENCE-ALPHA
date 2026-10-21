@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-10-21T08:56:50.359789+00:00",
+  "storage_engine": "SQLite WAL (Write-Ahead Logging)",
+  "docker_volume_mapping": "api_data:/app/data",
+  "acid_transactions": "BEGIN IMMEDIATE (atomic locks)",
+  "accounting_invariant_initial": {
+    "consistent": true,
+    "expected_total_cents": 2750000,
+    "actual_total_cents": 2750000,
+    "accounts_count": 5
+  },
+  "accounting_invariant_post_restore": {
+    "consistent": true,
+    "expected_total_cents": 2750000,
+    "actual_total_cents": 2750000,
+    "accounts_count": 5
+  },
+  "idempotency_preserved_across_restart": true,
+  "backup_and_restore_verified": true,
+  "status": "PASS"
+}
