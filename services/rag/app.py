@@ -276,28 +276,33 @@ class LocalRAGAssistant:
         max_score = float(hits[0]["similarity_score"]) if hits else 0.0
 
         live_telemetry = fetch_live_soc_telemetry()
-        LIVE_STATUS_KEYWORDS = (
-            "etat", "état", "statut", "status", "incident", "anomalie",
-            "temps reel", "temps réel", "en cours", "actuel", "maintenant",
-            "metrique", "métrique", "transaction", "bloque", "bloquée",
-            "waf", "score", "rapport", "situation", "direct", "live", "système", "systeme"
-        )
-        GREETING_KEYWORDS = (
-            "salut", "bonjour", "bonsoir", "hello", "hi", "coucou", "hey",
+        CYBER_AND_SYSTEM_WORDS = {
+            "attaque", "attaques", "attaquant", "attaquants", "attaquer", "agresseur",
+            "pirate", "hack", "hacker", "menace", "menaces", "danger", "alerte", "alertes",
+            "incident", "incidents", "anomalie", "anomalies", "perturbation", "degradation", "dégradation",
+            "ddos", "dos", "flood", "brute", "bruteforce", "injection", "sqli", "xss", "l7",
+            "waf", "firewall", "bloque", "bloquee", "bloqué", "bloquée", "bloquer", "ip", "blacklist",
+            "etat", "état", "statut", "status", "sante", "santé", "situation", "rapport",
+            "metrique", "métrique", "score", "forest", "isolation", "ml", "aiops",
+            "transaction", "transactions", "paiement", "paiements", "virement", "virements",
+            "argent", "solde", "soldes", "centimes", "compte", "comptes", "banque",
+            "idempotence", "idempotent", "ledger", "invariant", "remediation", "remédiation",
+            "ebios", "pca", "pra", "dora", "nis2", "lenny", "youssef", "pierre", "rohail",
+            "resilience", "alpha", "epsi", "workshop", "salut", "bonjour", "hello", "coucou"
+        }
+        CONVERSATIONAL_PHRASES = (
             "qui es-tu", "qui est tu", "tu es qui", "presente-toi", "présente-toi",
-            "ton role", "ton rôle", "que fais-tu", "que sais-tu faire",
-            "aide-moi", "aide", "presentation", "présentation", "merci",
-            "ça va", "ca va", "comment vas-tu", "comment ca va"
+            "ton role", "ton rôle", "que fais-tu", "tu as vu", "tu vois", "tu sais",
+            "comment vas-tu", "ça va", "ca va", "aide-moi"
         )
         
         lower_q = clean_query.lower().strip()
         words = set(re.findall(r"\w+", lower_q))
         
-        is_live_query = any(kw in lower_q for kw in LIVE_STATUS_KEYWORDS)
-        is_greeting = any(kw in lower_q for kw in GREETING_KEYWORDS) or words.intersection({"salut", "bonjour", "hello", "hi", "coucou", "hey"})
+        is_project_query = bool(words.intersection(CYBER_AND_SYSTEM_WORDS)) or any(phrase in lower_q for phrase in CONVERSATIONAL_PHRASES)
 
-        # Garde-fou anti-hallucination strict : refus si similarité < 0.040 (hors salutations et supervision temps réel)
-        if (not hits or max_score < self.similarity_threshold) and not is_live_query and not is_greeting:
+        # Garde-fou anti-hallucination strict : refus si similarité < 0.040 (hors requête liée au projet et supervision)
+        if (not hits or max_score < self.similarity_threshold) and not is_project_query:
             is_online, _ = self.llm_adapter.check_ollama_online()
             return {
                 "query": clean_query,
@@ -324,27 +329,18 @@ class LocalRAGAssistant:
         qualified_hits = [
             h for h in hits if float(h["similarity_score"]) >= self.similarity_threshold
         ]
-        if not qualified_hits:
-            if is_greeting:
-                qualified_hits = [{
-                    "citation": "[Source: docs/architecture.md#ADR-005 : Assistant RAG Local]",
-                    "excerpt": (
-                        "Tu es l'assistant IA et copilote de supervision opérationnelle de PROJECT RESILIENCE-ALPHA (Groupe 2 : Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD).\n"
-                        "Tu es spécialisé dans la cyber-résilience de la plateforme bancaire, l'analyse des métriques en temps réel, le modèle Isolation Forest et les procédures certifiées.\n"
-                        f"État actuel du système :\n{live_telemetry}"
-                    ),
-                    "source_file": "docs/architecture.md",
-                    "section_title": "Assistant RAG Local",
-                    "similarity_score": 1.0,
-                }]
-            elif is_live_query:
-                qualified_hits = [{
-                    "citation": "[Source: telemetry/soc-dashboard#LiveStatus]",
-                    "excerpt": f"Télémétrie opérationnelle en direct :\n{live_telemetry}",
-                    "source_file": "telemetry/soc-dashboard",
-                    "section_title": "LiveStatus",
-                    "similarity_score": 1.0,
-                }]
+        if not qualified_hits and is_project_query:
+            qualified_hits = [{
+                "citation": "[Source: docs/architecture.md#ADR-005 : Assistant RAG Local]",
+                "excerpt": (
+                    "Tu es l'assistant IA et copilote de supervision opérationnelle de PROJECT RESILIENCE-ALPHA (Groupe 2 : Lenny BARRESI, Youssef HANSIL, Pierre MICHAUD-EYMOZ, Rohail ARSHAD).\n"
+                    "Tu es spécialisé dans la cyber-résilience de la plateforme bancaire, l'observation des attaques (Flood L7, Brute-Force, SQLi), le modèle Isolation Forest, le WAF dynamique et les procédures certifiées.\n"
+                    f"État opérationnel en direct du système :\n{live_telemetry}"
+                ),
+                "source_file": "docs/architecture.md",
+                "section_title": "Assistant RAG Local",
+                "similarity_score": 1.0,
+            }]
         citations = [h["citation"] for h in qualified_hits]
         context_block = "\n\n".join(
             f"{h['citation']}\n{h['excerpt']}" for h in qualified_hits
