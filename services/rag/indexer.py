@@ -29,10 +29,11 @@ STOP_WORDS_FR_EN: list[str] = [
     "sur", "avec", "pour", "par", "au", "aux", "ce", "cet", "cette", "ces", "mon",
     "ton", "son", "notre", "votre", "leur", "que", "qui", "quoi", "dont", "ou",
     "comment", "pourquoi", "quand", "quel", "quelle", "quels", "quelles", "est",
-    "sont", "etre", "avoir", "fait", "faire", "peut", "plus", "moins", "tres",
+    "sont", "etre", "avoir", "fait", "faire", "peut", "peux", "pouvez", "plus", "moins", "tres",
     "pas", "ne", "ni", "mais", "donc", "or", "car", "si", "comme", "tout", "tous",
     "toute", "toutes", "meme", "autres", "autre", "entre", "sans", "sous", "vers",
     "chez", "depuis", "pendant", "avant", "apres", "alors", "ainsi", "cela", "ca",
+    "tu", "te", "toi", "vous", "nous", "on", "il", "elle", "ils", "elles", "moi", "me",
     "the", "is", "are", "was", "were", "be", "been", "to", "of", "and", "in",
     "that", "have", "it", "for", "not", "on", "with", "as", "you", "do", "at",
     "this", "but", "his", "by", "from", "they", "we", "say", "her", "she", "or",
@@ -200,15 +201,29 @@ class MarkdownSectionIndexer:
             return []
 
         vocab = self.vectorizer.vocabulary_
-        in_vocab_tokens = [t for t in content_tokens if t in vocab]
-        if not in_vocab_tokens:
+        effective_tokens: list[str] = []
+        in_vocab_count = 0
+        for t in content_tokens:
+            if t in vocab:
+                effective_tokens.append(t)
+                in_vocab_count += 1
+            elif t.endswith("s") and t[:-1] in vocab:
+                effective_tokens.append(t[:-1])
+                in_vocab_count += 1
+            else:
+                effective_tokens.append(t)
+
+        if in_vocab_count == 0:
             return []
 
         # Facteur de couverture du vocabulaire : évite que TfidfVectorizer ne normalise à 1.0
         # un unique mot ambigu (ex: "recette", "service", "port") dans une question hors-sujet.
-        vocab_coverage = len(in_vocab_tokens) / len(content_tokens)
+        vocab_coverage = in_vocab_count / len(content_tokens)
+        if vocab_coverage < 0.30:
+            return []
 
-        q_vec = self.vectorizer.transform([query])
+        expanded_query = query + " " + " ".join(effective_tokens)
+        q_vec = self.vectorizer.transform([expanded_query])
         if q_vec.nnz == 0:
             return []
 

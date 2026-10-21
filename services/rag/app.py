@@ -30,7 +30,7 @@ if str(ROOT_DIR) not in sys.path:
 
 from services.rag.indexer import MarkdownSectionIndexer
 
-SIMILARITY_THRESHOLD: float = 0.06
+SIMILARITY_THRESHOLD: float = 0.040
 DEFAULT_OLLAMA_URL: str = "http://127.0.0.1:11434"
 DEFAULT_OLLAMA_MODEL: str = "gemma4:e4b"
 
