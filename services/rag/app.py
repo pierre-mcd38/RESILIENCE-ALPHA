@@ -180,7 +180,7 @@ class LocalRAGAssistant:
         query: str,
         top_k: int = 3,
     ) -> dict[str, Any]:
-        """Traite une question opérateur avec contrôle d'injection, seuil 0.12 et citations."""
+        """Traite une question opérateur avec contrôle d'injection, seuil 0.040 et citations."""
         clean_query = (query or "").strip()
         if not clean_query:
             return {
@@ -231,7 +231,7 @@ class LocalRAGAssistant:
         hits = self.indexer.search(clean_query, top_k=max(1, top_k))
         max_score = float(hits[0]["similarity_score"]) if hits else 0.0
 
-        # Garde-fou anti-hallucination strict : refus si similarité < 0.12
+        # Garde-fou anti-hallucination strict : refus si similarité < 0.040
         if not hits or max_score < self.similarity_threshold:
             is_online, _ = self.llm_adapter.check_ollama_online()
             return {

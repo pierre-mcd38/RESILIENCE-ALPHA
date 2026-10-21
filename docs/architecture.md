@@ -117,6 +117,7 @@ Conformément au principe du moindre privilège (Section 3.4 & Section 4 du suje
    - Garantie d'exactitude monétaire : tous les calculs sont réalisés en **centimes entiers (`amount_cents: int`)**.
    - Garantie d'idempotence : table `idempotency_keys` associant `(idempotency_key, user_id)` à l'empreinte SHA-256 de la charge utile et à la réponse enregistrée.
    - Endpoint de rapprochement intensif `/api/v1/transactions/verify-batch` (profilé pour illustrer une charge CPU/IO réaliste lors d'appels massifs concurrents).
+   - **Architecture de Stockage & Persistance** : Le moteur transactionnel de référence du prototype est **SQLite en mode WAL** avec verrous atomiques IMMEDIATE garantissant l'ACIDité et l'isolation. En environnement Docker Compose, la base est persistée sur le volume nommé dédié pi_data:/app/data (indépendant du cycle de vie du conteneur pi). Le conteneur postgres:16-alpine (sur data_net avec volume pg_data) est également déployé et validé comme cible d'industrialisation bancaire multi-zones.
 5. **`services/detector` (Moteur ML d'Inférence AIOps)** :
    - Collecte périodique (toutes les 2 s) des fenêtres d'observation sur le WAF et l'API métier.
    - Calcul du vecteur à 7 caractéristiques et inférence via le modèle entraîné `IsolationForest` (`ml/artifacts/isolation_forest.joblib`).

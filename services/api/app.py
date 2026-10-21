@@ -287,7 +287,14 @@ def create_api_app(
     def _before_request() -> None:
         g.start_time = time.perf_counter()
         g.correlation_id = request.headers.get("X-Correlation-ID", f"corr-{uuid.uuid4().hex[:10]}")
-        g.source_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
+        direct_ip = request.remote_addr or "127.0.0.1"
+        trusted_proxies = {"127.0.0.1", "::1", "localhost", "172.28.10.10", "172.28.20.10"}
+        allow_sim = os.environ.get("API_ALLOW_SIMULATED_IP", "true").lower() in ("true", "1", "yes")
+        xff = request.headers.get("X-Forwarded-For", "").strip()
+        if (allow_sim or direct_ip in trusted_proxies) and xff:
+            g.source_ip = xff.split(",")[0].strip()
+        else:
+            g.source_ip = direct_ip
         g.is_expensive = False
         g.is_tx_success = False
 

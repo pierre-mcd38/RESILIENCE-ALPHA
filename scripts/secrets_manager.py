@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
 """
-PROJECT RESILIENCE-ALPHA — Gestionnaire de Secrets Chiffrés (SOPS + Age / AES-256-GCM)
-======================================================================================
+PROJECT RESILIENCE-ALPHA — Gestionnaire de Secrets Chiffrés (Coffre AES-256-GCM / Format SOPS)
+==============================================================================================
 
-Implémente le cycle de vie complet des secrets conformément à `AGENTS.md` :
-1. Génération et stockage de la clé maîtresse HORS DÉPÔT :
-   `~/.config/resilience-alpha/age-master.key`
-2. Chiffrement authentifié AEAD (`AES-256-GCM` via `cryptography.hazmat.primitives.ciphers.aead.AESGCM`)
-   au format compatible SOPS (`ENC[AES256_GCM,data:...,iv:...,tag:...,type:str]`) dans :
-   `infra/secrets/secrets.enc.json`
-3. Vérification d'intégrité cryptographique (Tag GCM + MAC d'arbre SOPS HMAC-SHA256)
-   et déchiffrement à la volée en mémoire vive sans jamais commiter de secret en clair.
+Qualification d'implémentation (F03) :
+- Coffre cryptographique local en Python natif (cryptography.hazmat) compatible avec l'arborescence SOPS
+  (chiffrement AES-256-GCM par champ ENC[...], AAD contextuel par nom de variable, MAC d'intégrité globale).
+- Conçu spécifiquement pour garantir l'autonomie et la portabilité sous Windows sans dépendance aux
+  binaires compilés Go 'sops' / 'age' externes.
+- Clé maîtresse 256 bits stockée HORS DÉPÔT : `~/.config/resilience-alpha/age-master.key` (ACLs restreintes).
+- Génération et injection des variables réelles déchiffrées au déploiement via `write-env` ou `render-env --export-secrets`.
 
-Procédure de réamorçage (Disaster Recovery / Nouveau poste opérateur) :
+Procédure de réamorçage / PRA Secrets (Nouveau poste ou restauration) :
 -----------------------------------------------------------------------
     python scripts/secrets_manager.py bootstrap --force
     python scripts/secrets_manager.py verify
@@ -269,6 +268,32 @@ def decrypt_secrets_in_memory() -> Dict[str, str]:
     return result
 
 
+def render_env_lines(include_secrets: bool = True) -> list[str]:
+    """Génère les lignes de variables d'environnement prêtes pour Docker Compose."""
+    secrets_map = decrypt_secrets_in_memory()
+    lines = [
+        "# ==============================================================================",
+        "# PROJECT RESILIENCE-ALPHA — VARIABLES INSTANCIEES DEPUIS LE COFFRE SOPS (NE PAS COMMITTER)",
+        "# ==============================================================================",
+        f"HOST_BIND_IP={os.environ.get('HOST_BIND_IP', '127.0.0.1')}",
+        f"POSTGRES_USER={secrets_map['postgres_user']}",
+        f"POSTGRES_DB={secrets_map['postgres_db']}",
+        f"OPERATOR_DEFAULT_USER={secrets_map['operator_user']}",
+        f"PROBE_SERVICE_USER={secrets_map['probe_user']}",
+    ]
+    if include_secrets:
+        lines.extend([
+            f"POSTGRES_PASSWORD={secrets_map['postgres_password']}",
+            f"JWT_SECRET_KEY={secrets_map['jwt_secret_key']}",
+            f"EXECUTOR_HMAC_SECRET={secrets_map['executor_hmac_secret']}",
+            f"OPERATOR_DEFAULT_PASSWORD={secrets_map['operator_password']}",
+            f"PROBE_SERVICE_PASSWORD={secrets_map['probe_password']}",
+            f"GRAFANA_ADMIN_PASSWORD={secrets_map['grafana_admin_password']}",
+            f"INTERNAL_CONTROL_TOKEN={secrets_map['internal_api_token']}",
+        ])
+    return lines
+
+
 def verify_secrets() -> Dict[str, Any]:
     """Vérifie que la clé hors dépôt et le coffre chiffré sont présents, intègres et déchiffrables."""
     decrypted = decrypt_secrets_in_memory()
@@ -296,7 +321,11 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("verify", help="Vérifie le chiffrement AEAD et le déchiffrement en mémoire vive")
     sub.add_parser("rotate", help="Effectue une rotation cryptographique des secrets dans secrets.enc.json")
-    sub.add_parser("render-env", help="Affiche les variables déchiffrées à la volée (sans écrire sur disque)")
+    p_render = sub.add_parser("render-env", help="Affiche les variables déchiffrées à la volée")
+    p_render.add_argument("--export-secrets", action="store_true", help="Inclut les clés de signature et mots de passe déchiffrés")
+
+    p_write = sub.add_parser("write-env", help="Écrit les variables déchiffrées dans un fichier .env cible pour Compose")
+    p_write.add_argument("--out-file", default=str(REPO_ROOT / "infra" / "compose" / ".env"), help="Chemin du fichier .env cible")
 
     args = parser.parse_args(argv)
 
@@ -315,13 +344,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(info, indent=2, ensure_ascii=False))
             return 0
         elif args.command == "render-env":
-            secrets_map = decrypt_secrets_in_memory()
-            print("# GENERATED IN MEMORY VIA secrets_manager.py (DO NOT COMMIT)")
-            print(f"POSTGRES_USER={secrets_map['postgres_user']}")
-            print(f"POSTGRES_DB={secrets_map['postgres_db']}")
-            print(f"OPERATOR_DEFAULT_USER={secrets_map['operator_user']}")
-            print(f"PROBE_SERVICE_USER={secrets_map['probe_user']}")
-            print("# Sensitive keys verified in memory (7/7 OK)")
+            lines = render_env_lines(include_secrets=args.export_secrets)
+            print("\n".join(lines))
+            return 0
+        elif args.command == "write-env":
+            target = Path(args.out_file).resolve()
+            target.parent.mkdir(parents=True, exist_ok=True)
+            lines = render_env_lines(include_secrets=True)
+            target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+            print(json.dumps({"written": True, "target": str(target), "variables_count": len(lines)}))
             return 0
     except Exception as exc:
         print(json.dumps({"valid": False, "error": str(exc)}), file=sys.stderr)

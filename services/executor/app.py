@@ -104,6 +104,7 @@ class ConstrainedExecutor:
         self._seen_command_ids: Set[str] = set()
         self._last_hash = "0" * 64
         self._audit_entries: List[Dict[str, Any]] = []
+        self._reload_audit_history_unlocked()
 
         self.waf_app = waf_app
         self.api_app = api_app
@@ -116,6 +117,27 @@ class ConstrainedExecutor:
             "executor_commands_rejected_validation_total": 0,
             "executor_commands_failed_total": 0,
         }
+
+    def _reload_audit_history_unlocked(self) -> None:
+        """Recharge l'historique d'audit persistant et restaure la tête de chaîne de hachage SHA-256 (F07)."""
+        if not self.audit_log_path.exists():
+            return
+        try:
+            with open(self.audit_log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    line_s = line.strip()
+                    if not line_s:
+                        continue
+                    entry = json.loads(line_s)
+                    self._audit_entries.append(entry)
+                    cmd_id = str(entry.get("command_id", ""))
+                    if cmd_id:
+                        self._seen_command_ids.add(cmd_id)
+                    entry_h = str(entry.get("entry_hash", ""))
+                    if entry_h:
+                        self._last_hash = entry_h
+        except Exception as exc:
+            logger.warning(f"Avertissement rechargement audit: {exc}")
 
     def _append_audit_entry(
         self,
@@ -152,19 +174,31 @@ class ConstrainedExecutor:
             return entry
 
     def verify_audit_chain(self) -> Dict[str, Any]:
-        """Vérifie l'intégrité cryptographique de toute la chaîne d'audit SHA-256."""
+        """Vérifie l'intégrité cryptographique de toute la chaîne d'audit SHA-256 (sur disque et en mémoire)."""
         with self._lock:
+            file_entries: List[Dict[str, Any]] = []
+            if self.audit_log_path.exists():
+                try:
+                    with open(self.audit_log_path, "r", encoding="utf-8") as f:
+                        for line in f:
+                            line_s = line.strip()
+                            if line_s:
+                                file_entries.append(json.loads(line_s))
+                except Exception as exc:
+                    return {"valid": False, "error": f"Erreur lecture fichier audit: {exc}"}
+
+            entries_to_check = file_entries if file_entries else self._audit_entries
             prev = "0" * 64
-            for idx, item in enumerate(self._audit_entries):
+            for idx, item in enumerate(entries_to_check):
                 if item.get("prev_hash") != prev:
-                    return {"valid": False, "broken_at_index": idx, "entries_count": len(self._audit_entries)}
+                    return {"valid": False, "broken_at_index": idx, "entries_count": len(entries_to_check)}
                 check_copy = {k: v for k, v in item.items() if k != "entry_hash"}
                 canonical = json.dumps(check_copy, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
                 expected_hash = hashlib.sha256(canonical.encode("utf-8")).hexdigest()
                 if item.get("entry_hash") != expected_hash:
-                    return {"valid": False, "broken_at_index": idx, "entries_count": len(self._audit_entries)}
+                    return {"valid": False, "broken_at_index": idx, "entries_count": len(entries_to_check)}
                 prev = expected_hash
-            return {"valid": True, "entries_count": len(self._audit_entries), "head_hash": prev}
+            return {"valid": True, "entries_count": len(entries_to_check), "head_hash": prev}
 
     def verify_hmac_and_freshness(
         self,
@@ -311,6 +345,8 @@ class ConstrainedExecutor:
                     reason="command_id déjà utilisé (anti-rejeu).",
                 )
                 return {"error": "Rejeu détecté : command_id déjà exécuté.", "audit_entry_hash": entry["entry_hash"]}, 409
+            # Réservation atomique immédiate de l'identifiant pour empêcher toute concurrence de rejeu
+            self._seen_command_ids.add(command_id)
 
         # 2. Validation de la liste fermée et des paramètres
         valid, val_err = self.validate_command(data)
@@ -326,9 +362,6 @@ class ConstrainedExecutor:
                 reason=val_err or "Paramètres non autorisés",
             )
             return {"error": val_err, "audit_entry_hash": entry["entry_hash"]}, 403
-
-        with self._lock:
-            self._seen_command_ids.add(command_id)
 
         # 3. Exécution confinée de l'action
         try:

@@ -86,6 +86,14 @@ SECRET_CONTENT_PATTERNS: List[tuple[str, re.Pattern[str]]] = [
         re.compile(r"\bghp_[A-Za-z0-9]{36}\b"),
     ),
     (
+        "GitHub Fine-Grained Personal Access Token",
+        re.compile(r"\bgithub_pat_[A-Za-z0-9_]{36,}\b"),
+    ),
+    (
+        "GitHub OAuth Access Token",
+        re.compile(r"\b(?:gho|ghu|ghs)_[A-Za-z0-9]{36}\b"),
+    ),
+    (
         "Stripe / Live Secret API Key",
         re.compile(r"\bsk_live_[0-9a-zA-Z]{24,}\b"),
     ),
@@ -138,6 +146,49 @@ def scan_repository(root: Path = REPO_ROOT) -> Dict[str, Any]:
                         "detail": f"Extension de clé privée interdite : {ext}",
                     }
                 )
+                continue
+
+            if ext == ".zip":
+                # Inspection récursive des archives ZIP livrables (F08)
+                try:
+                    import zipfile
+                    with zipfile.ZipFile(fpath, "r") as zf:
+                        for zinfo in zf.infolist():
+                            zname = zinfo.filename
+                            zbase = Path(zname).name
+                            zext = Path(zname).suffix.lower()
+                            if zbase in FORBIDDEN_FILENAMES:
+                                violations.append({
+                                    "file": f"{rel_path}!{zname}",
+                                    "rule": "FORBIDDEN_FILENAME_IN_ZIP",
+                                    "detail": f"Fichier sensible interdit trouvé dans l'archive ZIP : {zname}",
+                                })
+                            if zext in FORBIDDEN_EXTENSIONS:
+                                violations.append({
+                                    "file": f"{rel_path}!{zname}",
+                                    "rule": "FORBIDDEN_EXTENSION_IN_ZIP",
+                                    "detail": f"Extension interdite dans l'archive ZIP : {zext}",
+                                })
+                            if zext in (".py", ".yml", ".yaml", ".json", ".md", ".sh", ".ps1", ".txt"):
+                                try:
+                                    zcontent = zf.read(zname).decode("utf-8", errors="ignore")
+                                    for rule_name, pattern in SECRET_CONTENT_PATTERNS:
+                                        m = pattern.search(zcontent)
+                                        if m:
+                                            violations.append({
+                                                "file": f"{rel_path}!{zname}",
+                                                "rule": f"{rule_name}_IN_ZIP",
+                                                "detail": f"Motif critique détecté dans l'archive ZIP : {m.group(0)[:20]}...",
+                                            })
+                                except Exception:
+                                    pass
+                except Exception as exc:
+                    violations.append({
+                        "file": rel_path,
+                        "rule": "CORRUPTED_ZIP_ARCHIVE",
+                        "detail": f"Archive ZIP illisible : {exc}",
+                    })
+                scanned_files += 1
                 continue
 
             if ext in BINARY_EXTENSIONS:

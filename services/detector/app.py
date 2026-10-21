@@ -299,6 +299,57 @@ class AnomalyDetectorEngine:
         return "\n".join(lines)
 
 
+class AutonomousCollectorThread(threading.Thread):
+    """Worker autonome collectant périodiquement la télémétrie de l'API et du WAF pour inférence ML continue."""
+
+    def __init__(
+        self,
+        engine: AnomalyDetectorEngine,
+        api_metrics_url: str | None = None,
+        waf_metrics_url: str | None = None,
+        interval_seconds: float = 5.0,
+    ) -> None:
+        super().__init__(name="autonomous-detector-collector", daemon=True)
+        self.engine = engine
+        self.api_url = (api_metrics_url or os.environ.get("API_METRICS_URL") or "http://api:8001").rstrip("/")
+        self.waf_url = (waf_metrics_url or os.environ.get("WAF_METRICS_URL") or "http://waf-gateway:8080").rstrip("/")
+        self.interval = float(interval_seconds)
+        self._running = True
+
+    def stop(self) -> None:
+        self._running = False
+
+    def run(self) -> None:
+        import time
+        while self._running:
+            try:
+                api_win: dict[str, Any] = {}
+                try:
+                    resp_api = requests.get(f"{self.api_url}/api/v1/telemetry/window", timeout=2.0)
+                    if resp_api.status_code == 200:
+                        api_win = resp_api.json()
+                except Exception:
+                    pass
+
+                waf_win: dict[str, Any] = {}
+                try:
+                    resp_waf = requests.get(f"{self.waf_url}/waf/v1/telemetry/window", timeout=2.0)
+                    if resp_waf.status_code == 200:
+                        waf_win = resp_waf.json()
+                except Exception:
+                    pass
+
+                if api_win or waf_win:
+                    payload = dict(api_win)
+                    payload.update(waf_win)
+                    if "features" not in payload:
+                        payload["features"] = api_win.get("features", {})
+                    self.engine.evaluate_window(payload, push_to_remediator=self.engine.auto_push_remediator)
+            except Exception:
+                pass
+            time.sleep(self.interval)
+
+
 detector_engine = AnomalyDetectorEngine()
 
 
@@ -351,6 +402,11 @@ def create_app(engine: AnomalyDetectorEngine | None = None) -> Flask:
     def reset() -> tuple[Response, int]:
         active_engine.reset_state()
         return jsonify({"status": "RESET_OK", "consecutive_anomalies": 0}), 200
+
+    if os.environ.get("DETECTOR_AUTO_COLLECT", "false").lower() in ("true", "1", "yes"):
+        collector = AutonomousCollectorThread(active_engine)
+        collector.start()
+        flask_app.config["AUTONOMOUS_COLLECTOR"] = collector
 
     return flask_app
 

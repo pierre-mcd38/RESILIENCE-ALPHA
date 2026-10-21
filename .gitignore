@@ -5,6 +5,7 @@
 
 # Secrets & Clés cryptographiques (INTERDITS DANS GIT)
 .env
+**/.env
 .env.local
 .env.*.local
 *.key

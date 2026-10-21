@@ -79,6 +79,9 @@ services:
       AUTH_SERVICE_URL: http://auth:8002
       RESILIENCE_JWT_SECRET: ${JWT_SECRET_KEY:-fictive-lab-jwt-key-do-not-use-in-prod-2026-resilience-alpha}
       INTERNAL_CONTROL_TOKEN: ${INTERNAL_CONTROL_TOKEN:-resilience-internal-control-token-2026}
+      RESILIENCE_DB_PATH: /app/data/payments.sqlite3
+    volumes:
+      - api_data:/app/data
     networks:
       app_net:
         ipv4_address: 172.28.20.11
@@ -159,8 +162,10 @@ services:
     environment:
       SERVICE_NAME: detector
       DETECTOR_PORT: "8003"
-      WAF_METRICS_URL: http://waf-gateway:8080/metrics
-      API_METRICS_URL: http://api:8001/metrics
+      DETECTOR_AUTO_PUSH: "true"
+      DETECTOR_AUTO_COLLECT: "true"
+      WAF_METRICS_URL: http://waf-gateway:8080
+      API_METRICS_URL: http://api:8001
       REMEDIATOR_URL: http://remediator:8004
       ML_MODEL_PATH: /app/ml/artifacts/isolation_forest.joblib
       ML_DECISION_THRESHOLD: ${ML_DECISION_THRESHOLD:--0.1176}
@@ -304,7 +309,7 @@ services:
       edge_net:
         ipv4_address: 172.28.10.20
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null 2>&1 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/healthz >/dev/null 2>&1 || exit 1"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -485,6 +490,8 @@ networks:
         - subnet: 172.28.50.0/24
 
 volumes:
+  api_data:
+    name: resilience_api_data
   pg_data:
     name: resilience_pg_data
   prometheus_data:

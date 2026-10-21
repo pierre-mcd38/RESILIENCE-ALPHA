@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-19T14:22:57.440407+00:00",
-  "duration_seconds": 52.41,
+  "timestamp": "2026-10-21T08:15:53.125577+00:00",
+  "duration_seconds": 59.92,
   "unit_and_integration_tests": {
     "total_run": 14,
     "failures": 0,
@@ -38,12 +38,13 @@
     },
     {
       "check": "Déploiement Conteneurs sur Démon Docker Desktop (docker compose up)",
-      "status": "BLOCKED",
-      "reason": "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur."
+      "status": "STANDBY_READY",
+      "reason": "Démon Docker actif ; prêt pour déploiement via scripts/up.ps1"
     },
     {
       "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant 192.168.137.135 -> 192.168.137.1)",
       "status": "PASS",
+      "evidence_file": "data/live_2pc_validation.json",
       "reason": null
     }
   ]

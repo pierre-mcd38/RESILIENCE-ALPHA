@@ -19,12 +19,14 @@ $SecretsScript = Join-Path $RepoRoot "scripts\secrets_manager.py"
 Write-Host "[RESILIENCE-ALPHA] Preparation du deploiement sur HOST_BIND_IP=$BindIp..." -ForegroundColor Cyan
 $env:HOST_BIND_IP = $BindIp
 
-# 1. Verifier/Amorcer les secrets chiffres
+# 1. Verifier/Amorcer les secrets chiffres et generer le .env de deploiement
 python $SecretsScript verify
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[RESILIENCE-ALPHA] Amorcage initial du coffre de secrets..." -ForegroundColor Yellow
     python $SecretsScript bootstrap
 }
+Write-Host "[RESILIENCE-ALPHA] Injection des secrets dechiffres dans infra/compose/.env..." -ForegroundColor Cyan
+python $SecretsScript write-env --out-file (Join-Path $RepoRoot "infra\compose\.env")
 
 # 2. Valider la syntaxe du fichier Docker Compose
 Write-Host "[RESILIENCE-ALPHA] Validation de infra/compose/docker-compose.yml..." -ForegroundColor Cyan

@@ -9,7 +9,7 @@
      - Découpage sémantique par sections Markdown (`#`, `##`, `###`) des fichiers de `docs/`, `AGENTS.md` et `infra/ansible/`.
      - Recherche hybride TF-IDF / cosinus (`scikit-learn`) + pipeline LangChain / Ollama (`OLLAMA_BASE_URL` configurable vers `http://127.0.0.1:11434` ou vers un PC IA dédié `http://192.168.137.x:11434`).
   3. **Garde-fous Anti-Hallucination et Anti-Injection de Prompt** :
-     - Si le score de similarité documentaire est inférieur au seuil minimal (`0.12`), le service refuse de répondre et indique explicitement que l'information est absente de la base documentaire.
+     - Si le score de similarité documentaire est inférieur au seuil minimal (`0.040`), le service refuse de répondre et indique explicitement que l'information est absente de la base documentaire.
      - Chaque réponse cite obligatoirement le fichier source et la section exacte (`[Source: docs/...#Section]`).
      - Les documents récupérés sont encapsulés dans des balises de données passives ; le service RAG ne possède aucun client HTTP vers `executor` ni aucun outil d'exécution système.
 - **Conséquences** :

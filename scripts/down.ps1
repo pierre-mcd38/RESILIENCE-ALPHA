@@ -28,5 +28,10 @@ if ($PurgeVolumes) {
     docker compose -f $ComposeFile down --remove-orphans
 }
 
+$EnvFile = Join-Path $RepoRoot "infra\compose\.env"
+if (Test-Path $EnvFile) {
+    Remove-Item $EnvFile -Force -ErrorAction SilentlyContinue
+}
+
 Write-Host "[RESILIENCE-ALPHA] Plateforme arretee proprement." -ForegroundColor Green
 exit 0

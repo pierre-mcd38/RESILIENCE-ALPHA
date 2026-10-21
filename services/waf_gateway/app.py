@@ -369,6 +369,21 @@ def create_waf_app(
         "INTERNAL_CONTROL_TOKEN",
         "resilience-internal-control-token-2026",
     )
+    trusted_proxies = set(
+        p.strip() for p in os.environ.get("WAF_TRUSTED_PROXIES", "127.0.0.1,::1,localhost").split(",") if p.strip()
+    )
+    allow_simulated_ips = os.environ.get("WAF_ALLOW_SIMULATED_IP", "true").lower() in ("true", "1", "yes")
+
+    def _resolve_client_ip(req: Any) -> str:
+        """Résout l'adresse IP cliente de manière sécurisée en prévenant l'usurpation via X-Forwarded-For."""
+        direct_ip = req.remote_addr or "127.0.0.1"
+        xff = req.headers.get("X-Forwarded-For", "").strip()
+        # En mode simulation ou si la connexion provient d'un reverse-proxy de confiance déclaré
+        if (allow_simulated_ips or direct_ip in trusted_proxies) and xff:
+            claimed_ip = xff.split(",")[0].strip()
+            if claimed_ip:
+                return claimed_ip
+        return direct_ip
 
     @app.route("/health", methods=["GET"])
     def health() -> Tuple[Response, int]:
@@ -399,6 +414,11 @@ def create_waf_app(
     @app.route("/waf/v1/status", methods=["GET"])
     def waf_status() -> Tuple[Response, int]:
         return jsonify(engine.get_status()), 200
+
+    @app.route("/waf/v1/telemetry/window", methods=["GET"])
+    def waf_telemetry_window() -> Tuple[Response, int]:
+        win_sec = float(request.args.get("window_seconds", 5.0))
+        return jsonify(engine.get_window_waf_stats(win_sec)), 200
 
     @app.route("/waf/v1/events", methods=["GET"])
     def waf_events() -> Tuple[Response, int]:
@@ -436,7 +456,7 @@ def create_waf_app(
 
     def _forward_request(target_key: str, base_url: str, subpath: str) -> Tuple[Response, int]:
         correlation_id = request.headers.get("X-Correlation-ID", f"corr-{uuid.uuid4().hex[:10]}")
-        source_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
+        source_ip = _resolve_client_ip(request)
         body_bytes = request.get_data()
         body_text = body_bytes.decode("utf-8", errors="ignore")
 

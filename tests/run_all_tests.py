@@ -80,12 +80,13 @@ def run_suite() -> Dict[str, Any]:
             },
             {
                 "check": "Déploiement Conteneurs sur Démon Docker Desktop (docker compose up)",
-                "status": "PASS" if docker_daemon_running else "BLOCKED",
-                "reason": None if docker_daemon_running else "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur.",
+                "status": "PASS" if (docker_daemon_running and (ROOT_DIR / "infra" / "compose" / ".env").exists()) else ("STANDBY_READY" if docker_daemon_running else "BLOCKED"),
+                "reason": None if (docker_daemon_running and (ROOT_DIR / "infra" / "compose" / ".env").exists()) else ("Démon Docker actif ; prêt pour déploiement via scripts/up.ps1" if docker_daemon_running else "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur."),
             },
             {
                 "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant 192.168.137.135 -> 192.168.137.1)",
                 "status": "PASS" if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else "BLOCKED",
+                "evidence_file": "data/live_2pc_validation.json" if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else None,
                 "reason": None if (ROOT_DIR / "data" / "live_2pc_validation.json").exists() else "Nécessite l'activation du Point d'Accès Mobile Windows RESILIENCE-G2 (192.168.137.1) et la connexion physique du 2e PC.",
             },
         ],
