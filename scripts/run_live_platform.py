@@ -1045,8 +1045,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s. Compte bloqué.`;
             fb.style.color = '#ef4444';
           } else {
-            fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s. Vous pouvez réexaminer ou changer d'opérateur.`;
-            fb.style.color = '#fbbf24';
+            const simTxt = data.similarity_score !== undefined ? ` (similarité: ${(data.similarity_score * 100).toFixed(1)}% vs seuil 75%)` : '';
+            fb.textContent = `✗ ${data.message}${simTxt} LED : Rouge fixe 30s.`;
+            fb.style.color = '#ef4444';
           }
         }
       } catch (err) {

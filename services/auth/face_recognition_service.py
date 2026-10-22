@@ -35,7 +35,7 @@ class BiometricFaceService:
 
     LOCKOUT_DURATION_SECONDS: int = 300  # 5 minutes de verrouillage
     MAX_FAILED_ATTEMPTS: int = 2         # 2 essais max avant blocage
-    SIMILARITY_THRESHOLD: float = 0.70   # Seuil de reconnaissance cosinus
+    SIMILARITY_THRESHOLD: float = 0.75   # Seuil de reconnaissance cosinus calibré (strict)
     ENABLE_LOCKOUT: bool = False         # Désactivé par défaut pour permettre des tests libres illimités
 
     def __init__(self, storage_path: Optional[str] = None) -> None:
@@ -106,7 +106,7 @@ class BiometricFaceService:
         }
         self.storage_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
-    def extract_face_descriptor(self, bgr_image: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[Tuple[int, int, int, int]]]:
+    def extract_face_descriptor(self, bgr_image: np.ndarray) -> Tuple[Optional[Any], Optional[Tuple[int, int, int, int]]]:
         """Détecte le visage et extrait un descripteur biométrique 128D normalisé."""
         if bgr_image is None or bgr_image.size == 0:
             return None, None
@@ -122,17 +122,20 @@ class BiometricFaceService:
         )
 
         if len(faces) == 0:
-            # Fallback centre si détection stricte échoue (ex: visage partiel)
-            h, w = gray.shape
-            crop_h, crop_w = int(h * 0.6), int(w * 0.6)
-            start_y, start_x = (h - crop_h) // 2, (w - crop_w) // 2
-            face_roi = gray[start_y : start_y + crop_h, start_x : start_x + crop_w]
-            bbox = (start_x, start_y, crop_w, crop_h)
-        else:
-            # Sélection du plus grand visage détecté
-            x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-            face_roi = gray[y : y + h, x : x + w]
-            bbox = (int(x), int(y), int(w), int(h))
+            # Aucun visage complet détecté (évite les faux positifs quand on s'approche trop)
+            return None, None
+
+        frame_h, frame_w = gray.shape
+        # Sélection du plus grand visage détecté
+        x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+        bbox = (int(x), int(y), int(w), int(h))
+
+        # Vérification anti-proximité : si le visage prend plus de 75% du cadre, la personne est trop près
+        if w > frame_w * 0.75 or h > frame_h * 0.75:
+            logger.warning("Visage trop proche de la caméra (>75% du cadre).")
+            return "TOO_CLOSE", bbox
+
+        face_roi = gray[y : y + h, x : x + w]
 
         # Normalisation et lissage pour réduire le bruit de capteur et les micro-mouvements
         blurred = cv2.GaussianBlur(face_roi, (5, 5), 0)
@@ -242,11 +245,26 @@ class BiometricFaceService:
             # 3. Extraction et comparaison
             if frame is not None:
                 descriptor, bbox = self.extract_face_descriptor(frame)
-                if descriptor is not None:
-                    similarity = float(np.dot(enrolled_vector, descriptor) / (np.linalg.norm(enrolled_vector) * np.linalg.norm(descriptor) + 1e-6))
+                if descriptor == "TOO_CLOSE":
+                    esp_controller.set_led_state("RED_SOLID_30S", "Visage trop proche de l'ecran")
+                    return {
+                        "face_verified": False,
+                        "status": "TOO_CLOSE",
+                        "message": "⚠️ Vous êtes trop près de l'écran ! Reculez à distance normale (~50 cm).",
+                        "similarity_score": 0.0,
+                        "esp_led_state": "RED_SOLID_30S",
+                    }
+                if descriptor is not None and isinstance(descriptor, np.ndarray):
+                    similarity = float(
+                        np.dot(enrolled_vector, descriptor)
+                        / (np.linalg.norm(enrolled_vector) * np.linalg.norm(descriptor) + 1e-6)
+                    )
                 else:
                     similarity = 0.0
-                    return self._handle_failed_attempt(username, "Aucun visage net détecté par l'IA. Cadrez bien votre visage face à la caméra.")
+                    return self._handle_failed_attempt(
+                        username,
+                        "Aucun visage net détecté par l'IA. Cadrez bien votre visage face à la caméra (distance normale ~50 cm).",
+                    )
             else:
                 # Mode simulation pour essais scriptés
                 similarity = 0.85
@@ -276,14 +294,18 @@ class BiometricFaceService:
                     "display_name": user_profile.get("display_name", username),
                     "similarity_score": round(similarity, 4),
                     "preauth_token": preauth_token,
-                    "message": f"Visage reconnu (similarité {(similarity*100):.1f}% >= 70%). Mot de passe débloqué !",
+                    "message": f"Visage reconnu (similarité {(similarity*100):.1f}% >= 75%). Mot de passe débloqué !",
                     "esp_led_state": "GREEN_BLINK",
                 }
             else:
                 # ÉCHEC : Visage NON reconnu
-                return self._handle_failed_attempt(username, f"Visage non reconnu (similarité {(similarity*100):.1f}% < 70%).")
+                return self._handle_failed_attempt(
+                    username,
+                    f"Visage non reconnu (similarité {(similarity*100):.1f}% < 75%).",
+                    similarity_score=similarity,
+                )
 
-    def _handle_failed_attempt(self, username: str, reason: str) -> Dict[str, Any]:
+    def _handle_failed_attempt(self, username: str, reason: str, similarity_score: float = 0.0) -> Dict[str, Any]:
         """Gère l'échec de reconnaissance faciale, l'allumage Rouge fixe 30s et le verrouillage 5 min."""
         current_fails = self._failed_attempts.get(username, 0) + 1
         self._failed_attempts[username] = current_fails
@@ -300,6 +322,7 @@ class BiometricFaceService:
                 "locked": True,
                 "locked_seconds_remaining": self.LOCKOUT_DURATION_SECONDS,
                 "attempts_remaining": 0,
+                "similarity_score": round(similarity_score, 4),
                 "message": f"Visage non reconnu. 2 échecs consécutifs atteints : compte verrouillé pour 5 minutes.",
                 "esp_led_state": "RED_SOLID_30S",
             }
@@ -308,8 +331,9 @@ class BiometricFaceService:
                 "face_verified": False,
                 "status": "RETRY_ALLOWED",
                 "locked": False,
+                "similarity_score": round(similarity_score, 4),
                 "attempts_remaining": 99 if not self.ENABLE_LOCKOUT else max(0, self.MAX_FAILED_ATTEMPTS - current_fails),
-                "message": f"{reason} Verrouillage désactivé pour les tests : vous pouvez réessayer immédiatement !",
+                "message": f"{reason} Vous pouvez réajuster votre distance ou changer d'opérateur.",
                 "esp_led_state": "RED_SOLID_30S",
             }
 
@@ -345,8 +369,10 @@ class BiometricFaceService:
     def enroll_user_face(self, username: str, display_name: str, role: str, frame: np.ndarray) -> Dict[str, Any]:
         """Enrôle un nouveau visage ou met à jour l'empreinte biométrique d'un opérateur."""
         descriptor, bbox = self.extract_face_descriptor(frame)
-        if descriptor is None:
-            return {"success": False, "error": "Aucun visage détecté sur l'image fournie."}
+        if descriptor == "TOO_CLOSE":
+            return {"success": False, "error": "Vous êtes trop près de l'écran pour l'enrôlement ! Reculez à distance normale (~50 cm)."}
+        if descriptor is None or not isinstance(descriptor, np.ndarray):
+            return {"success": False, "error": "Aucun visage net détecté sur l'image fournie (veillez au bon cadrage face à la caméra)."}
 
         with self._lock:
             self.enrolled_faces[username] = {
