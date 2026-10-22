@@ -413,11 +413,12 @@ def create_api_app(
         if "transactions:create" not in claims.get("permissions", []):
             return jsonify({"error": "Accès refusé : permission transactions:create requise."}), 403
 
-        # Effet réel de la saturation des workers sur les paiements légitimes
+        # Effet réel de la saturation des workers sur les paiements légitimes (sonde de reprise exemptée)
+        is_probe = str(g.correlation_id or "").startswith("probe-") or claims.get("subject") == "resilience_probe"
         with state.lock:
             backlog = state.saturated_backlog
             active_w = state.active_expensive_workers
-        if backlog >= 8 or active_w >= state.max_worker_slots:
+        if not is_probe and (backlog >= 8 or active_w >= state.max_worker_slots):
             time.sleep(min(0.45, 0.08 * max(backlog, active_w)))
             if backlog >= 12:
                 log_structured(

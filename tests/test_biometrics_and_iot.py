@@ -41,15 +41,15 @@ class TestBiometricAndIoTFirmware(unittest.TestCase):
                 pass
 
     def _create_synthetic_face_image(self, intensity: int = 128) -> np.ndarray:
-        """Génère une image synthétique simulant un visage centré pour les tests."""
-        img = np.full((200, 200, 3), intensity, dtype=np.uint8)
+        """Génère une image synthétique simulant un visage centré pour les tests (taille réaliste 300x300)."""
+        img = np.full((300, 300, 3), intensity, dtype=np.uint8)
         # Dessine un contour de visage elliptique
-        cv2.ellipse(img, (100, 100), (60, 80), 0, 0, 360, (200, 200, 200), -1)
+        cv2.ellipse(img, (150, 150), (60, 80), 0, 0, 360, (200, 200, 200), -1)
         # Yeux
-        cv2.circle(img, (75, 80), 10, (50, 50, 50), -1)
-        cv2.circle(img, (125, 80), 10, (50, 50, 50), -1)
+        cv2.circle(img, (125, 130), 10, (50, 50, 50), -1)
+        cv2.circle(img, (175, 130), 10, (50, 50, 50), -1)
         # Bouche
-        cv2.ellipse(img, (100, 140), (25, 10), 0, 0, 180, (50, 50, 50), 3)
+        cv2.ellipse(img, (150, 190), (25, 10), 0, 0, 180, (50, 50, 50), 3)
         return img
 
     def test_01_esp8266_controller_states(self) -> None:

@@ -14,16 +14,22 @@ Write-Host "==================================================" -ForegroundColor
 Write-Host "  DÉBLOCAGE PARE-FEU WINDOWS & HOTSPOT GROUPE 2   " -ForegroundColor Cyan
 Write-Host "==================================================" -ForegroundColor Cyan
 
-# 1. Autoriser explicitement les ports 8080, 3000 et 3001
-Write-Host "[1/3] Configuration des règles entrantes Pare-feu pour 8080, 3000 et 3001..." -ForegroundColor White
+# 1. Autoriser explicitement les ports 8080, 3300, 3000 et 3001, ainsi que ICMP Ping
+Write-Host "[1/3] Configuration des règles entrantes Pare-feu pour 8080, 3300, 3000, 3001 et Ping..." -ForegroundColor White
 netsh advfirewall firewall delete rule name="Resilience-Alpha WAF 8080" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Resilience-Alpha WAF 8080" dir=in action=allow protocol=TCP localport=8080 profile=any | Out-Null
+
+netsh advfirewall firewall delete rule name="Resilience-Alpha UI 3300" 2>$null | Out-Null
+netsh advfirewall firewall add rule name="Resilience-Alpha UI 3300" dir=in action=allow protocol=TCP localport=3300 profile=any | Out-Null
 
 netsh advfirewall firewall delete rule name="Resilience-Alpha UI 3000" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Resilience-Alpha UI 3000" dir=in action=allow protocol=TCP localport=3000 profile=any | Out-Null
 
 netsh advfirewall firewall delete rule name="Resilience-Alpha Grafana 3001" 2>$null | Out-Null
 netsh advfirewall firewall add rule name="Resilience-Alpha Grafana 3001" dir=in action=allow protocol=TCP localport=3001 profile=any | Out-Null
+
+# Autoriser ICMP Ping entrant
+netsh advfirewall firewall add rule name="Resilience-Alpha Allow ICMPv4" protocol=icmpv4:8,any dir=in action=allow profile=any 2>$null | Out-Null
 
 # 2. Remplacer les règles Python "Bloquer" par "Autoriser"
 Write-Host "[2/3] Déblocage des règles Python sur profil Public..." -ForegroundColor White

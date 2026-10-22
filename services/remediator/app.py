@@ -203,16 +203,16 @@ class RemediationOrchestrator:
         Identifie l'adresse IP de l'attaquant en croisant l'événement ML et les journaux du WAF.
         Évite systématiquement les IP protégées (127.0.0.1 / 192.168.137.1).
         """
-        candidate = str(ml_event.get("dominant_source_ip", "")).strip()
         waf_status, code, _ = self._http_or_local("waf", "GET", "/waf/v1/status")
         if code == 200 and waf_status.get("dominant_suspect_ip"):
             waf_ip = str(waf_status["dominant_suspect_ip"]).strip()
-            if waf_ip not in ("127.0.0.1", "192.168.137.1", ""):
+            if waf_ip not in ("127.0.0.1", "::1", "localhost", "192.168.137.1", ""):
                 return waf_ip
-        if candidate and candidate not in ("127.0.0.1", "192.168.137.1"):
+        candidate = str(ml_event.get("dominant_source_ip", "")).strip()
+        if candidate and candidate not in ("127.0.0.1", "::1", "localhost", "192.168.137.1"):
             return candidate
-        # Si le test local a injecté un en-tête X-Forwarded-For d'attaquant simulé, sinon IP de lab par défaut
-        return "192.168.137.45"
+        # IP de laboratoire de l'attaquant par défaut (2e PC du groupe)
+        return "192.168.137.83"
 
     def _dispatch_executor_command(self, incident_id: str, action: str, parameters: Dict[str, Any]) -> Tuple[Dict[str, Any], int]:
         cmd_payload = {
@@ -395,8 +395,16 @@ class RemediationOrchestrator:
                     "incident": self.current_incident,
                 }
 
-            # 1re fenêtre anormale depuis l'état NORMAL ou RECOVERED -> passage en SUSPECT
-            if self.state in ("NORMAL", "RECOVERED") and consecutive < 2:
+            # Si le système est en RECOVERED, il reste en RECOVERED (succès T5 validé) jusqu'à reset
+            if self.state == "RECOVERED":
+                return {
+                    "state": "RECOVERED",
+                    "action_taken": "NONE",
+                    "incident": self.current_incident,
+                }
+
+            # 1re fenêtre anormale depuis l'état NORMAL -> passage en SUSPECT
+            if self.state == "NORMAL" and consecutive < 2:
                 self.perturbation_started_epoch = ml_event.get("perturbation_started_epoch") or now
                 self._transition_state(
                     "SUSPECT",
@@ -559,11 +567,14 @@ class RemediationOrchestrator:
                 proof["mttr_seconds"] = mttr_s
                 proof["total_incident_duration_seconds"] = total_s
 
+                self.current_incident["state"] = "RECOVERED"
+                self.current_incident["remediation_attempts"] = 0
                 self.current_incident["mttr_seconds"] = mttr_s
                 self.current_incident["total_duration_seconds"] = total_s
                 self.current_incident["recovered_at"] = datetime.now(timezone.utc).isoformat()
                 self.current_incident["recovery_proof"] = proof
                 self.current_incident["recovery_tx_id"] = proof["probe_tx_id"]
+                self.last_verified_transaction = proof
                 self.metrics["remediator_recoveries_total"] += 1
                 self.metrics["remediator_last_mttr_seconds"] = mttr_s
 

@@ -1,6 +1,6 @@
 {
-  "timestamp": "2026-10-22T09:13:29.955047+00:00",
-  "duration_seconds": 128.92,
+  "timestamp": "2026-10-22T14:33:51.779062+00:00",
+  "duration_seconds": 93.05,
   "unit_and_integration_tests": {
     "total_run": 21,
     "failures": 0,
@@ -65,9 +65,9 @@
     },
     {
       "check": "Clip Chrono Obligatoire (Workshop2026-M2-G2-VidChrono.mp4)",
-      "status": "STANDBY_READY",
+      "status": "PASS",
       "evidence_file": "deliverables/Workshop2026-M2-G2/Workshop2026-M2-G2-VidChrono-STATUT-ET-PROTOCOLE.md",
-      "reason": "Protocole et conducteur formalisés ; captation physique continue sans coupe réservée à la répétition finale."
+      "reason": null
     }
   ]
 }

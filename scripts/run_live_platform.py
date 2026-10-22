@@ -18,6 +18,19 @@ from __future__ import annotations
 import json
 import os
 import sys
+
+# Forcer l'encodage UTF-8 sur Windows PowerShell pour éviter les UnicodeEncodeError avec les emojis/flèches
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import threading
 import time
 import uuid
@@ -311,6 +324,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <p>Lenny BARRESI • Youssef HANSIL • Pierre MICHAUD-EYMOZ • Rohail ARSHAD | Hôte: 192.168.137.1 | 2e PC: 192.168.137.135</p>
     </div>
     <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <button class="green" style="background:#10b981;color:#fff;border:none;padding:8px 16px;font-size:0.88rem;font-weight:900;border-radius:6px;cursor:pointer;margin:0;box-shadow:0 0 12px rgba(16,185,129,0.6);" onclick="resetPlatform()" title="Remet la plateforme à l'état NORMAL et débloque l'IP">🔄 REMISE À ZÉRO DÉMO</button>
       <span id="session-badge" class="badge" style="background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;">🔒 SESSION : NON AUTHENTIFIÉ</span>
       <button id="session-logout-btn" class="amber" style="display:none;padding:4px 9px;font-size:0.74rem;margin:0;" onclick="logoutSession()">Déconnexion 🚪</button>
       <span id="ollama-badge" class="badge badge-ai">IA OLLAMA (gemma4:e4b) : ACTIF</span>
@@ -411,9 +425,40 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <div class="kpi-row"><span>ACC-FR-002 ( Marchand ) :</span><span id="bal-2" class="kpi-val">—</span></div>
       <div class="kpi-row"><span>Transactions engagées :</span><span id="tx-count" class="kpi-val">0</span></div>
       <div id="bo-controls-box" style="margin-top:8px;opacity:0.45;pointer-events:none;transition:opacity 0.25s;">
-        <button id="btn-t0" class="green" onclick="executePayment('T0')">Exécuter Transaction T0 (50,00 EUR)</button>
-        <button id="btn-t5" class="green" onclick="executePayment('T5')">Exécuter Transaction T5 (25,00 EUR)</button>
-        <button id="btn-reset" class="amber" onclick="resetPlatform()">Réinitialiser Démo (Débloquer IP)</button>
+        <div style="display:flex;gap:4px;margin-bottom:6px;">
+          <button id="btn-t0" class="green" style="flex:1;" onclick="executePayment('T0')">Transaction T0 (50,00 EUR)</button>
+          <button id="btn-t5" class="green" style="flex:1;" onclick="executePayment('T5')">Transaction T5 (25,00 EUR)</button>
+        </div>
+
+        <!-- Terminal de Paiement Interactif Direct -->
+        <div style="background:#090d16;border:1px solid #1e293b;border-radius:6px;padding:8px;margin-bottom:6px;">
+          <div style="font-size:0.75rem;font-weight:700;color:#38bdf8;margin-bottom:5px;">💳 Terminal de Paiement Marchand Libre :</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:4px;">
+            <div>
+              <span style="font-size:0.68rem;color:#94a3b8;display:block;">Compte Débiteur :</span>
+              <select id="pay-src" style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:4px;border-radius:4px;font-size:0.72rem;">
+                <option value="ACC-FR-001" selected>ACC-FR-001 (Trésorerie Alpha)</option>
+                <option value="ACC-FR-002">ACC-FR-002 (Partenaire Beta)</option>
+                <option value="ACC-FR-003">ACC-FR-003 (Marchand Gamma)</option>
+              </select>
+            </div>
+            <div>
+              <span style="font-size:0.68rem;color:#94a3b8;display:block;">Compte Bénéficiaire :</span>
+              <select id="pay-dst" style="width:100%;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:4px;border-radius:4px;font-size:0.72rem;">
+                <option value="ACC-FR-002" selected>ACC-FR-002 (Partenaire Beta)</option>
+                <option value="ACC-FR-003">ACC-FR-003 (Marchand Gamma)</option>
+                <option value="ACC-FR-001">ACC-FR-001 (Trésorerie Alpha)</option>
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:4px;margin-bottom:4px;">
+            <input id="pay-amount" type="number" step="0.01" min="0.01" value="15.00" placeholder="Montant EUR" style="width:95px;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:4px;border-radius:4px;font-size:0.75rem;" />
+            <input id="pay-desc" type="text" value="Achat boutique e-commerce" placeholder="Motif de la transaction" style="flex:1;background:#0f172a;border:1px solid #334155;color:#e2e8f0;padding:4px;border-radius:4px;font-size:0.72rem;" />
+          </div>
+          <button class="blue" style="width:100%;margin:0;padding:5px;font-weight:700;" onclick="executeCustomPayment()">Valider le Virement Immédiat (ACID)</button>
+        </div>
+
+        <button id="btn-reset" class="green" style="width:100%;margin:0;padding:8px;background:#10b981;color:#fff;font-weight:800;font-size:0.85rem;border-radius:6px;border:none;cursor:pointer;box-shadow:0 0 10px rgba(16,185,129,0.3);" onclick="resetPlatform()">🔄 REMISE À ZÉRO DÉMO (Débloquer IP WAF & Rétablir NORMAL)</button>
       </div>
       <div id="operator-session-info" style="display:none;font-size:0.75rem;color:#6ee7b7;margin-top:4px;">
         Session active : <strong id="op-username-tag">operator_alpha</strong> | Jeton JWT : <span style="color:#38bdf8;">Valide (HMAC-SHA256)</span>
@@ -433,7 +478,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     <div class="card">
       <h2>5. Liens d'Observabilité & Console Offensives</h2>
-      <div class="kpi-row"><span>Dashboard Grafana Temps Réel :</span><a href="http://127.0.0.1:3001/d/resilience-alpha-main" target="_blank" style="color:#38bdf8;font-weight:700;">Ouvrir Grafana (:3001)</a></div>
+      <div class="kpi-row"><span>Dashboard Grafana Temps Réel :</span><a href="http://127.0.0.1:3000" target="_blank" style="color:#38bdf8;font-weight:700;">Ouvrir Grafana (:3000)</a></div>
       <div class="kpi-row"><span>Serveur Prometheus TSDB :</span><a href="http://127.0.0.1:9090/targets" target="_blank" style="color:#38bdf8;">Ouvrir Prometheus (:9090)</a></div>
       <div class="kpi-row"><span>Console Multi-Attaques 2e PC :</span><a href="/attacker" target="_blank" style="color:#f87171;font-weight:700;">Ouvrir /attacker (:8080)</a></div>
       <div class="kpi-row"><span>API Assistant IA Ollama RAG :</span><a href="http://127.0.0.1:8006/rag/v1/status" target="_blank" style="color:#c4b5fd;">Statut Ollama (:8006)</a></div>
@@ -669,12 +714,120 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       refreshState();
     }
 
+    async function executeCustomPayment() {
+      if (!authenticatedSession || !authenticatedSession.token) {
+        const fb = document.getElementById('tx-feedback');
+        fb.style.color = '#f87171';
+        fb.textContent = 'Accès refusé : Authentification biométrique + mot de passe requise (Section 6).';
+        scrollToBiometrics();
+        return;
+      }
+      const src = document.getElementById('pay-src').value;
+      const dst = document.getElementById('pay-dst').value;
+      const amtVal = parseFloat(document.getElementById('pay-amount').value || '0');
+      const desc = document.getElementById('pay-desc').value || 'Virement direct';
+      if (amtVal <= 0) {
+        alert('Montant invalide.');
+        return;
+      }
+      if (src === dst) {
+        alert('Le compte émetteur et le compte bénéficiaire doivent être différents.');
+        return;
+      }
+      const amountCents = Math.round(amtVal * 100);
+      const fb = document.getElementById('tx-feedback');
+      fb.style.color = '#93c5fd';
+      fb.textContent = `Traitement du virement de ${amtVal.toFixed(2)} EUR de ${src} vers ${dst}...`;
+      try {
+        const res = await fetch('/live/v1/trigger-payment', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            label: 'CUSTOM',
+            amount_cents: amountCents,
+            source_account_id: src,
+            target_account_id: dst,
+            description: desc,
+            token: authenticatedSession.token,
+            operator_username: authenticatedSession.username
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          fb.style.color = '#34d399';
+          const tx = data.transaction;
+          fb.innerHTML = `<strong>Paiement Réussi !</strong> Tx ID: <code>${(tx.transaction_id || tx.tx_id).slice(0, 16)}...</code> | Montant: <strong>${(tx.amount_cents/100).toFixed(2)} EUR</strong><br/>Solde source : <strong>${(tx.source_balance_after_cents/100).toFixed(2)} EUR</strong> | Bénéficiaire : <strong>${(tx.target_balance_after_cents/100).toFixed(2)} EUR</strong>`;
+        } else {
+          fb.style.color = '#f87171';
+          fb.textContent = `Erreur : ${data.error || 'échec de paiement'}`;
+        }
+      } catch (e) {
+        fb.style.color = '#f87171';
+        fb.textContent = 'Erreur réseau : ' + e;
+      }
+      refreshState();
+    }
+
     async function resetPlatform() {
       userAskedCustom = false;
       lastAutoIncidentId = null;
       await fetch('/live/v1/reset', {method: 'POST'});
       document.querySelectorAll('.step-box').forEach(el => el.classList.remove('done'));
       document.getElementById('tx-feedback').textContent = 'Plateforme réinitialisée (IP débloquées, état NORMAL).';
+      refreshState();
+    }
+
+    async function executeCustomPayment() {
+      if (!authenticatedSession || !authenticatedSession.token) {
+        const fb = document.getElementById('tx-feedback');
+        fb.style.color = '#f87171';
+        fb.textContent = 'Accès refusé : Authentification biométrique + mot de passe requise (Section 6).';
+        scrollToBiometrics();
+        return;
+      }
+      const src = document.getElementById('pay-src').value;
+      const dst = document.getElementById('pay-dst').value;
+      const amtVal = parseFloat(document.getElementById('pay-amount').value || '0');
+      const desc = document.getElementById('pay-desc').value || 'Virement direct';
+      if (amtVal <= 0) {
+        alert('Montant invalide.');
+        return;
+      }
+      if (src === dst) {
+        alert('Le compte émetteur et le compte bénéficiaire doivent être différents.');
+        return;
+      }
+      const amountCents = Math.round(amtVal * 100);
+      const fb = document.getElementById('tx-feedback');
+      fb.style.color = '#93c5fd';
+      fb.textContent = `Traitement du virement de ${amtVal.toFixed(2)} EUR de ${src} vers ${dst}...`;
+      try {
+        const res = await fetch('/live/v1/trigger-payment', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            label: 'CUSTOM',
+            amount_cents: amountCents,
+            source_account_id: src,
+            target_account_id: dst,
+            description: desc,
+            token: authenticatedSession.token,
+            operator_username: authenticatedSession.username
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          fb.style.color = '#34d399';
+          const tx = data.transaction;
+          fb.innerHTML = `<strong>Paiement Réussi !</strong> Tx ID: <code>${(tx.transaction_id || tx.tx_id).slice(0, 16)}...</code> | Montant: <strong>${(tx.amount_cents/100).toFixed(2)} EUR</strong><br/>Solde source : <strong>${(tx.source_balance_after_cents/100).toFixed(2)} EUR</strong> | Bénéficiaire : <strong>${(tx.target_balance_after_cents/100).toFixed(2)} EUR</strong>`;
+        } else {
+          fb.style.color = '#f87171';
+          fb.textContent = `Erreur : ${data.error || 'échec de paiement'}`;
+        }
+      } catch (e) {
+        fb.style.color = '#f87171';
+        fb.textContent = 'Erreur réseau : ' + e;
+      }
       refreshState();
     }
 
@@ -955,11 +1108,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       const vid = document.getElementById('laptop-cam-video');
       const cvs = document.getElementById('laptop-cam-canvas');
       if (vid && vid.videoWidth > 0 && cvs) {
-        cvs.width = vid.videoWidth;
-        cvs.height = vid.videoHeight;
+        const targetWidth = Math.min(640, vid.videoWidth);
+        const targetHeight = Math.round(targetWidth * (vid.videoHeight / vid.videoWidth));
+        cvs.width = targetWidth;
+        cvs.height = targetHeight;
         const ctx = cvs.getContext('2d');
         ctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
-        return cvs.toDataURL('image/jpeg', 0.9);
+        return cvs.toDataURL('image/jpeg', 0.85);
       }
       return null;
     }
@@ -967,7 +1122,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     async function enrollMyFaceSnapshot() {
       const sel = document.getElementById('bio-username-input');
       const username = sel.value.trim() || 'operator_alpha';
-      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
+      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\\s]*\\s*/, '') : username;
       const fb = document.getElementById('bio-feedback-msg');
       fb.textContent = `📸 Capture de votre visage pour '${displayName}' en cours...`;
       fb.style.color = "#38bdf8";
@@ -983,7 +1138,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             image_b64: b64
           })
         });
-        const d = await res.json();
+        const text = await res.text();
+        let d;
+        try {
+          d = JSON.parse(text);
+        } catch (_) {
+          throw new Error(`Réponse non-JSON du serveur (HTTP ${res.status}).`);
+        }
         if (res.ok && d.success) {
           fb.textContent = `✓ Votre visage a été mémorisé avec succès pour '${displayName}' ! Cliquez maintenant sur '1. Analyser mon visage'.`;
           fb.style.color = "#34d399";
@@ -1004,7 +1165,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     async function triggerBiometricFaceCheck() {
       const sel = document.getElementById('bio-username-input');
       const username = sel.value.trim();
-      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
+      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\\s]*\\s*/, '') : username;
       const fb = document.getElementById('bio-feedback-msg');
       if (!username) {
         fb.textContent = 'Veuillez sélectionner un opérateur.';
@@ -1023,7 +1184,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({username: username, use_camera: true, image_b64: b64})
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          throw new Error(`Le serveur a retourné une réponse HTTP ${res.status}. Veuillez rafraîchir la page (F5).`);
+        }
         if (res.ok && data.face_verified) {
           bioFaceVerified = true;
           fb.textContent = `✓ Visage reconnu pour ${displayName} (similarité ${((data.similarity_score || 0.85)*100).toFixed(1)}%). LED : Vert clignotant. Mot de passe débloqué !`;
@@ -1069,7 +1236,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({username: username, password: password})
         });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          throw new Error(`Le serveur a retourné une réponse HTTP ${res.status}. Veuillez rafraîchir la page (F5).`);
+        }
         if (res.ok && data.success) {
           updateEspLedVisual('GREEN_SOLID_30S');
           fb.textContent = '✓ Authentification réussie ! LED : Vert fixe 30s. Accès Back-office autorisé.';
@@ -1077,7 +1250,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           document.getElementById('bio-cam-btn').disabled = false;
 
           const sel = document.getElementById('bio-username-input');
-          const selText = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
+          const selText = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\\s]*\\s*/, '') : username;
 
           applyAuthenticationState(true, {
             token: (data.bundle && data.bundle.access_token) || data.token || '',
@@ -1256,7 +1429,7 @@ ATTACKER_CONSOLE_HTML = """<!DOCTYPE html>
 
     <div style="display:flex;gap:10px;margin-top:12px;">
       <button class="stop" style="flex:1" onclick="stopScenario()">🛑 Arrêt d'Urgence Immédiat (Kill-Switch)</button>
-      <button class="reset" style="flex:1" onclick="unblockMe()">🔓 Débloquer mon IP & Réinitialiser</button>
+      <button class="reset" style="flex:1;background:#10b981;color:#fff;font-weight:800;font-size:0.95rem;padding:12px;border:none;border-radius:8px;cursor:pointer;box-shadow:0 0 10px rgba(16,185,129,0.4);" onclick="unblockMe()">🔄 REMISE À ZÉRO DÉMO (Débloquer mon IP)</button>
     </div>
 
     <div class="stats">
@@ -1333,7 +1506,11 @@ ATTACKER_CONSOLE_HTML = """<!DOCTYPE html>
           document.getElementById('status-msg').textContent =
             '🛡️ DÉTECTION & REMÉDIATION IA CONFIRMÉES : Votre IP est bannie dynamiquement par l IA (HTTP 403 AIOPS_DYNAMIC_BLOCKLIST) !';
         }
-      } catch (e) {}
+      } catch (e) {
+        counts.other++;
+        document.getElementById('cnt-other').textContent = counts.other;
+        document.getElementById('status-msg').textContent = '⚠️ Erreur réseau : ' + e.message;
+      }
     }
 
     async function startScenario(vectorName) {
@@ -1844,6 +2021,9 @@ class LiveResilienceCluster:
         amount_cents: int = 5000,
         token: Optional[str] = None,
         operator_username: Optional[str] = None,
+        source_account_id: str = "ACC-FR-001",
+        target_account_id: str = "ACC-FR-002",
+        description: Optional[str] = None,
     ) -> Dict[str, Any]:
         op_user = operator_username or "operator_alpha"
         if not token:
@@ -1855,6 +2035,7 @@ class LiveResilienceCluster:
                 token = tok_resp.get_json()["access_token"]
 
         idem_key = f"idem-{label.lower()}-{uuid.uuid4().hex[:8]}"
+        desc_final = description or f"Transaction métier {label} ({op_user} - Live)"
         with self.waf_app.test_client() as waf_client:
             tx_resp = waf_client.post(
                 "/api/v1/transactions",
@@ -1864,16 +2045,17 @@ class LiveResilienceCluster:
                     "X-Forwarded-For": "127.0.0.1",
                 },
                 json={
-                    "source_account_id": "ACC-FR-001",
-                    "target_account_id": "ACC-FR-002",
+                    "source_account_id": source_account_id,
+                    "target_account_id": target_account_id,
                     "amount_cents": int(amount_cents),
                     "currency": "EUR",
-                    "description": f"Transaction métier {label} ({op_user} - Live)",
+                    "description": desc_final,
                 },
             )
             tx_data = tx_resp.get_json()
             if tx_resp.status_code not in (200, 201):
-                raise RuntimeError(f"Échec transaction {label}: {tx_data}")
+                err_msg = tx_data.get("error", tx_data) if isinstance(tx_data, dict) else tx_data
+                raise RuntimeError(f"Échec transaction {label}: {err_msg}")
             if "transaction_id" not in tx_data and "tx_id" in tx_data:
                 tx_data["transaction_id"] = tx_data["tx_id"]
 
@@ -1888,19 +2070,56 @@ class LiveResilienceCluster:
         return {"transaction": tx_data, "invariant": inv, "operator": op_user}
 
     def _attach_live_routes(self, app: Flask, is_waf: bool = False) -> None:
+        @app.errorhandler(Exception)
+        def handle_any_exc(err):
+            from werkzeug.exceptions import HTTPException
+            code = 500
+            if isinstance(err, HTTPException):
+                if err.code in (404, 301, 302):
+                    return err
+                code = err.code or 500
+            import traceback
+            print(f"[FLASK-ERROR] {request.method} {request.path} -> {err}", flush=True)
+            return jsonify({"error": str(err), "message": str(err), "success": False}), code
+
+        if is_waf:
+            @app.before_request
+            def _log_waf_request():
+                try:
+                    if request.path in ("/live/v1/summary", "/metrics", "/health", "/waf/v1/telemetry/window"):
+                        return None
+                    src = request.headers.get("X-Forwarded-For", request.remote_addr or "127.0.0.1").split(",")[0].strip()
+                    print(f"[PASSERELLE WAF-8080] >> {request.method} {request.path} | Source IP: {src}", flush=True)
+                except Exception as exc:
+                    print(f"[LOG-WAF-EXC] {exc}", flush=True)
+                return None
+
         @app.route("/", methods=["GET"])
         def index_page() -> Response:
             if is_waf:
                 return Response(WAF_GATEWAY_HTML, mimetype="text/html")
-            return Response(DASHBOARD_HTML, mimetype="text/html")
+            resp = Response(DASHBOARD_HTML, mimetype="text/html")
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
         @app.route("/dashboard", methods=["GET"])
         def index_dashboard() -> Response:
-            return Response(DASHBOARD_HTML, mimetype="text/html")
+            resp = Response(DASHBOARD_HTML, mimetype="text/html")
+            resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+            resp.headers["Pragma"] = "no-cache"
+            resp.headers["Expires"] = "0"
+            return resp
 
         @app.route("/attacker", methods=["GET"])
         def attacker_console() -> Response:
-            return Response(ATTACKER_CONSOLE_HTML, mimetype="text/html")
+            try:
+                return Response(ATTACKER_CONSOLE_HTML, mimetype="text/html")
+            except Exception as e:
+                import traceback
+                print(f"[ATTACKER-ROUTE-EXC] {traceback.format_exc()}", flush=True)
+                return Response(f"ERROR: {e}", status=500)
 
         @app.route("/attacker.ps1", methods=["GET"])
         def attacker_ps1() -> Response:
@@ -1985,46 +2204,60 @@ class LiveResilienceCluster:
 
         @app.route("/live/v1/bio-identify", methods=["POST"])
         def live_bio_identify() -> Tuple[Response, int]:
-            from services.auth.app import _decode_b64_image
-            body = request.get_json(silent=True) or {}
-            username = str(body.get("username", "")).strip()
-            use_cam = bool(body.get("use_camera", True))
-            image_b64 = body.get("image_b64")
-            frame = _decode_b64_image(image_b64) if image_b64 else None
-            print(f"[LIVE-BIO] Identify request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
-            res = biometric_service.verify_operator_face(username, frame=frame, use_camera=use_cam)
-            print(f"[LIVE-BIO] Identify result: {res}", flush=True)
-            code = 200 if res.get("face_verified") else (423 if res.get("locked") else 401)
-            return jsonify(res), code
+            try:
+                from services.auth.app import _decode_b64_image
+                body = request.get_json(silent=True) or {}
+                username = str(body.get("username", "")).strip()
+                use_cam = bool(body.get("use_camera", True))
+                image_b64 = body.get("image_b64")
+                frame = _decode_b64_image(image_b64) if image_b64 else None
+                print(f"[LIVE-BIO] Identify request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
+                res = biometric_service.verify_operator_face(username, frame=frame, use_camera=use_cam)
+                print(f"[LIVE-BIO] Identify result: {res}", flush=True)
+                code = 200 if res.get("face_verified") else (423 if res.get("locked") else 401)
+                return jsonify(res), code
+            except Exception as exc:
+                print(f"[LIVE-BIO-ERR] Identify error: {exc}", flush=True)
+                return jsonify({"error": str(exc), "face_verified": False, "message": f"Erreur analyse faciale : {exc}"}), 400
 
         @app.route("/live/v1/bio-enroll", methods=["POST"])
         def live_bio_enroll() -> Tuple[Response, int]:
-            from services.auth.app import _decode_b64_image
-            body = request.get_json(silent=True) or {}
-            username = str(body.get("username", "operator_alpha")).strip()
-            display_name = str(body.get("display_name", username)).strip()
-            image_b64 = body.get("image_b64")
-            frame = _decode_b64_image(image_b64) if image_b64 else None
-            print(f"[LIVE-BIO] Enroll request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
-            if frame is None:
-                ok, frame, msg = biometric_service.capture_frame_from_usb_camera(0)
-                if not ok:
-                    return jsonify({"error": msg, "success": False}), 400
-            res = biometric_service.enroll_user_face(username, display_name, "merchant_operator", frame)
-            biometric_service.reset_lockout(username)
-            return jsonify(res), 200
+            try:
+                from services.auth.app import _decode_b64_image
+                body = request.get_json(silent=True) or {}
+                username = str(body.get("username", "operator_alpha")).strip()
+                display_name = str(body.get("display_name", username)).strip()
+                image_b64 = body.get("image_b64")
+                frame = _decode_b64_image(image_b64) if image_b64 else None
+                print(f"[LIVE-BIO] Enroll request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
+                if frame is None:
+                    ok, frame, msg = biometric_service.capture_frame_from_usb_camera(0)
+                    if not ok:
+                        return jsonify({"error": msg, "success": False}), 400
+                res = biometric_service.enroll_user_face(username, display_name, "merchant_operator", frame)
+                if res.get("success"):
+                    biometric_service.reset_lockout(username)
+                    return jsonify(res), 200
+                else:
+                    return jsonify(res), 400
+            except Exception as exc:
+                print(f"[LIVE-BIO-ERR] Enroll error: {exc}", flush=True)
+                return jsonify({"error": str(exc), "success": False, "message": f"Erreur enrôlement : {exc}"}), 400
 
         @app.route("/live/v1/bio-login", methods=["POST"])
         def live_bio_login() -> Tuple[Response, int]:
-            body = request.get_json(silent=True) or {}
-            username = str(body.get("username", "")).strip()
-            password = str(body.get("password", ""))
-            bundle, err = self.auth_engine.authenticate(username, password)
-            if err or not bundle:
-                biometric_service.validate_password_step(username, False)
-                return jsonify({"error": err or "Mot de passe invalide.", "success": False}), 401
-            biometric_service.validate_password_step(username, True)
-            return jsonify({"bundle": bundle, "success": True, "message": "Accès Back-office autorisé."}), 200
+            try:
+                body = request.get_json(silent=True) or {}
+                username = str(body.get("username", "")).strip()
+                password = str(body.get("password", ""))
+                bundle, err = self.auth_engine.authenticate(username, password)
+                if err or not bundle:
+                    biometric_service.validate_password_step(username, False)
+                    return jsonify({"error": err or "Mot de passe invalide.", "success": False}), 401
+                biometric_service.validate_password_step(username, True)
+                return jsonify({"bundle": bundle, "success": True, "message": "Accès Back-office autorisé."}), 200
+            except Exception as exc:
+                return jsonify({"error": f"Erreur interne : {exc}", "success": False}), 500
 
         @app.route("/live/v1/bio-led-test", methods=["POST"])
         def live_bio_led_test() -> Tuple[Response, int]:
@@ -2047,6 +2280,9 @@ class LiveResilienceCluster:
             amount_cents = int(body.get("amount_cents", 5000))
             token = body.get("token")
             operator_username = body.get("operator_username", "operator_alpha")
+            source_account_id = str(body.get("source_account_id", "ACC-FR-001"))
+            target_account_id = str(body.get("target_account_id", "ACC-FR-002"))
+            description = body.get("description")
 
             # Sécurité : Vérification du jeton JWT de session opérateur
             if token:
@@ -2060,14 +2296,22 @@ class LiveResilienceCluster:
 
             try:
                 res = self._execute_operator_payment(
-                    label, amount_cents, token=token, operator_username=operator_username
+                    label,
+                    amount_cents,
+                    token=token,
+                    operator_username=operator_username,
+                    source_account_id=source_account_id,
+                    target_account_id=target_account_id,
+                    description=description,
                 )
                 return jsonify(res), 201
             except Exception as exc:
-                return jsonify({"error": str(exc)}), 500
+                return jsonify({"error": str(exc)}), 400
 
-        @app.route("/live/v1/reset", methods=["POST"])
-        def reset_all() -> Tuple[Response, int]:
+        @app.route("/live/v1/reset", methods=["POST", "GET"])
+        @app.route("/reset", methods=["POST", "GET"])
+        @app.route("/remise-a-zero", methods=["POST", "GET"])
+        def reset_all() -> Any:
             self._attack_gen = getattr(self, "_attack_gen", 0) + 1
             with self.waf_engine.lock:
                 self.waf_engine.dynamic_blocklist.clear()
@@ -2090,6 +2334,9 @@ class LiveResilienceCluster:
                 self.orchestrator._transition_state("NORMAL", "Réinitialisation manuelle de la démonstration.")
                 self.orchestrator.current_incident = None
                 self.orchestrator.perturbation_started_epoch = None
+            if request.method == "GET":
+                from flask import redirect
+                return redirect("/")
             return jsonify({"status": "RESET_OK"}), 200
 
         @app.route("/live/v1/trigger-scenario", methods=["POST"])
@@ -2128,7 +2375,12 @@ class LiveResilienceCluster:
             def _bg_multi_attack() -> None:
                 t_end = time.time() + min(dur, 15.0)
                 idx = 0
-                while time.time() < t_end and not is_kill_switch_engaged() and getattr(self, "_attack_gen", 0) == my_gen:
+                while (
+                    time.time() < t_end
+                    and not is_kill_switch_engaged()
+                    and getattr(self, "_attack_gen", 0) == my_gen
+                    and self.orchestrator.state in ("NORMAL", "SUSPECT", "INCIDENT")
+                ):
                     idx += 1
                     headers = {"X-Forwarded-For": src_ip, "Content-Type": "application/json"}
                     mode = attack_type
@@ -2214,8 +2466,19 @@ class LiveResilienceCluster:
                         ).start()
 
                 prev_state = self.orchestrator.state
-                if ml_event.get("is_anomaly") or prev_state in ("NORMAL", "SUSPECT"):
+                if prev_state != "RECOVERED" and (ml_event.get("is_anomaly") or prev_state in ("NORMAL", "SUSPECT")):
                     self.orchestrator.handle_anomaly_event(ml_event)
+
+                if prev_state != self.orchestrator.state:
+                    print(f"\n==================================================================", flush=True)
+                    print(f"🚨 [AIOPS INCIDENT] Transition: {prev_state} ➜ {self.orchestrator.state}", flush=True)
+                    print(f"   Vecteur d'attaque : {self.last_detected_attack_type}", flush=True)
+                    print(f"   Score ML (Isolation Forest) : {ml_event.get('anomaly_score')} (Seuil: {self.detector.decision_threshold})", flush=True)
+                    print(f"   IP Suspecte dominante : {win.get('dominant_source_ip')}", flush=True)
+                    if self.orchestrator.state == "RECOVERED":
+                        last_p = self.orchestrator.last_verified_transaction or {}
+                        print(f"✅ [T5 - PREUVE RÉTABLISSEMENT] Transaction métier réussie : {last_p.get('transaction_id')} ({last_p.get('amount_cents', 5000)} cts)", flush=True)
+                    print(f"==================================================================\n", flush=True)
 
                 if prev_state != "RECOVERED" and self.orchestrator.state == "RECOVERED":
                     with self.waf_engine.lock:
@@ -2238,10 +2501,21 @@ class LiveResilienceCluster:
         t0_info = self._execute_operator_payment("T0", 5000)
         print(f"[RESILIENCE-G2] Transaction initiale T0 engagée : {t0_info['transaction']['transaction_id']} (50,00 EUR)")
 
+        grafana_redirect_app = Flask("grafana_redir")
+        @grafana_redirect_app.route("/", defaults={"path": ""})
+        @grafana_redirect_app.route("/<path:path>")
+        def _redir_graf(path: str) -> Any:
+            from flask import redirect
+            qs = request.query_string.decode("utf-8")
+            target = f"http://127.0.0.1:3000/{path}"
+            if qs:
+                target += f"?{qs}"
+            return redirect(target, code=302)
+
         services = [
             ("waf-gateway", self.waf_app, 8080),
             ("frontend-ui", self.frontend_app, 3300),
-            ("frontend-ui-legacy", self.frontend_app, 3000),
+            ("grafana-proxy-3001", grafana_redirect_app, 3001),
             ("api", self.api_app, 8001),
             ("auth", self.auth_app, 8002),
             ("detector", self.detector_app, 8003),
@@ -2284,8 +2558,8 @@ if __name__ == "__main__":
     cluster.start()
     print("\n==================================================================")
     print(" PLATEFORME PROJECT RESILIENCE-ALPHA (GROUPE 2) EN LIGNE")
-    print(" - Centre IA & SOC      : http://localhost:3300  | http://127.0.0.1:3000  | http://192.168.137.1:3000")
-    print(" - Supervision Grafana  : http://127.0.0.1:3001/d/resilience-alpha-main")
+    print(" - Centre IA & SOC      : http://localhost:3300  | http://192.168.137.1:3300")
+    print(" - Supervision Grafana  : http://localhost:3000  | http://localhost:3001")
     print(" - Passerelle WAF       : http://127.0.0.1:8080  | http://192.168.137.1:8080")
     print(" - Console Tir 2e PC    : http://192.168.137.1:8080/attacker")
     print(" - Commande PS 2e PC    : irm http://192.168.137.1:8080/attacker.ps1 | iex")

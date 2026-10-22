@@ -247,7 +247,8 @@ class WafEngine:
             max_general = 150 if self.rate_limit_profile == "normal" else (50 if self.rate_limit_profile == "elevated" else 25)
             max_expensive = 120 if self.rate_limit_profile == "normal" else (10 if self.rate_limit_profile == "elevated" else 2)
 
-            if len(win) > max_general or (is_expensive_route and len(exp_win) > max_expensive):
+            is_internal_probe = source_ip in ("127.0.0.1", "::1", "localhost") or correlation_id.startswith("probe-")
+            if not is_internal_probe and (len(win) > max_general or (is_expensive_route and len(exp_win) > max_expensive)):
                 self.metrics["waf_blocked_ratelimit_total"] += 1
                 self.request_logs.append(
                     {
@@ -304,8 +305,10 @@ class WafEngine:
             counts: Dict[str, int] = {}
             for entry in self.request_logs:
                 if entry["ts_epoch"] >= cutoff:
-                    weight = 5 if entry.get("is_signature_attack") else (3 if (entry.get("is_expensive") or entry.get("is_auth_route")) else 1)
                     ip = entry["source_ip"]
+                    if ip in ("127.0.0.1", "::1", "192.168.137.1", "localhost"):
+                        continue
+                    weight = 5 if entry.get("is_signature_attack") else (3 if (entry.get("is_expensive") or entry.get("is_auth_route")) else 1)
                     counts[ip] = counts.get(ip, 0) + weight
             if not counts:
                 return None

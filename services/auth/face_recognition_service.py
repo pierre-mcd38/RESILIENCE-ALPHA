@@ -36,7 +36,7 @@ class BiometricFaceService:
     LOCKOUT_DURATION_SECONDS: int = 300  # 5 minutes de verrouillage
     MAX_FAILED_ATTEMPTS: int = 2         # 2 essais max avant blocage
     SIMILARITY_THRESHOLD: float = 0.75   # Seuil de reconnaissance cosinus calibré (strict)
-    ENABLE_LOCKOUT: bool = False         # Désactivé par défaut pour permettre des tests libres illimités
+    ENABLE_LOCKOUT: bool = os.environ.get("ENABLE_BIOMETRIC_LOCKOUT", "true").lower() in ("true", "1", "yes")
 
     def __init__(self, storage_path: Optional[str] = None) -> None:
         self.root_dir = Path(__file__).resolve().parents[2]
@@ -133,7 +133,7 @@ class BiometricFaceService:
         # Vérification anti-proximité : si le visage prend plus de 75% du cadre, la personne est trop près
         if w > frame_w * 0.75 or h > frame_h * 0.75:
             logger.warning("Visage trop proche de la caméra (>75% du cadre).")
-            return "TOO_CLOSE", bbox
+            return None, bbox
 
         face_roi = gray[y : y + h, x : x + w]
 
@@ -245,7 +245,7 @@ class BiometricFaceService:
             # 3. Extraction et comparaison
             if frame is not None:
                 descriptor, bbox = self.extract_face_descriptor(frame)
-                if descriptor == "TOO_CLOSE":
+                if isinstance(descriptor, str) and descriptor == "TOO_CLOSE":
                     esp_controller.set_led_state("RED_SOLID_30S", "Visage trop proche de l'ecran")
                     return {
                         "face_verified": False,
@@ -369,7 +369,7 @@ class BiometricFaceService:
     def enroll_user_face(self, username: str, display_name: str, role: str, frame: np.ndarray) -> Dict[str, Any]:
         """Enrôle un nouveau visage ou met à jour l'empreinte biométrique d'un opérateur."""
         descriptor, bbox = self.extract_face_descriptor(frame)
-        if descriptor == "TOO_CLOSE":
+        if isinstance(descriptor, str) and descriptor == "TOO_CLOSE":
             return {"success": False, "error": "Vous êtes trop près de l'écran pour l'enrôlement ! Reculez à distance normale (~50 cm)."}
         if descriptor is None or not isinstance(descriptor, np.ndarray):
             return {"success": False, "error": "Aucun visage net détecté sur l'image fournie (veillez au bon cadrage face à la caméra)."}

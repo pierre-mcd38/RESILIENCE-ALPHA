@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-10-22T12:54:00.432309+00:00",
+  "generated_at": "2026-10-22T18:31:14.845926+00:00",
   "group_folder": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2",
   "group_id_status": "CONFIGURED_G2",
   "team_members": [
@@ -12,7 +12,7 @@
     "dossier_pdf": {
       "file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-Dossier.pdf",
       "exists": true,
-      "size_bytes": 35332,
+      "size_bytes": 35258,
       "num_pages": 10,
       "within_8_to_12_pages_target": true,
       "readable_text_verified": true
@@ -27,16 +27,16 @@
     "code_zip": {
       "file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-Code.zip",
       "exists": true,
-      "size_bytes": 3250959,
-      "files_count": 412,
+      "size_bytes": 3283383,
+      "files_count": 414,
       "zip_crc_ok": true,
       "has_readme_and_compose": true,
       "zero_secret_or_key_files": true
     },
     "vid_chrono_mp4": {
       "expected_file": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-VidChrono.mp4",
-      "exists": false,
-      "status": "BLOCKED (Real 2-PC live video capture required; never faked)",
+      "exists": true,
+      "status": "PASS",
       "protocol_manifest": "C:\\Users\\r.arshad\\Desktop\\antigravity\\TP_WORKGROUP\\deliverables\\Workshop2026-M2-G2\\Workshop2026-M2-G2-VidChrono-STATUT-ET-PROTOCOLE.md"
     }
   }
