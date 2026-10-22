@@ -310,7 +310,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       <h1>PROJECT RESILIENCE-ALPHA — Centre IA & Cyber-Résilience (Groupe 2)</h1>
       <p>Lenny BARRESI • Youssef HANSIL • Pierre MICHAUD-EYMOZ • Rohail ARSHAD | Hôte: 192.168.137.1 | 2e PC: 192.168.137.135</p>
     </div>
-    <div>
+    <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <span id="session-badge" class="badge" style="background:rgba(239,68,68,0.2);border-color:#ef4444;color:#fca5a5;">🔒 SESSION : NON AUTHENTIFIÉ</span>
+      <button id="session-logout-btn" class="amber" style="display:none;padding:4px 9px;font-size:0.74rem;margin:0;" onclick="logoutSession()">Déconnexion 🚪</button>
       <span id="ollama-badge" class="badge badge-ai">IA OLLAMA (gemma4:e4b) : ACTIF</span>
       <span id="state-badge" class="badge state-NORMAL">ÉTAT : NORMAL</span>
     </div>
@@ -398,14 +400,23 @@ DASHBOARD_HTML = """<!DOCTYPE html>
   <div class="grid">
     <div class="card">
       <h2>3. Opérations Métier & Contrôles (T0 / T5)</h2>
+      <div id="bo-locked-notice" style="background:#1e1b4b;border:1px solid #6366f1;border-radius:6px;padding:8px 10px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span style="font-size:0.77rem;color:#c7d2fe;">
+          🔒 <strong>Accès Verrouillé</strong> : Authentification requise (visage + mot de passe dans la Section 6) pour activer les transactions métier.
+        </span>
+        <button class="blue" style="margin:0;padding:4px 8px;font-size:0.72rem;white-space:nowrap;" onclick="scrollToBiometrics()">S'authentifier &darr;</button>
+      </div>
       <div class="kpi-row"><span>Invariant Comptable (3 comptes) :</span><span id="inv-status" class="kpi-val" style="color:#34d399">27 500,00 EUR (OK)</span></div>
       <div class="kpi-row"><span>ACC-FR-001 ( Émetteur ) :</span><span id="bal-1" class="kpi-val">—</span></div>
       <div class="kpi-row"><span>ACC-FR-002 ( Marchand ) :</span><span id="bal-2" class="kpi-val">—</span></div>
       <div class="kpi-row"><span>Transactions engagées :</span><span id="tx-count" class="kpi-val">0</span></div>
-      <div style="margin-top:8px">
-        <button class="green" onclick="executePayment('T0')">Exécuter Transaction T0 (50,00 EUR)</button>
-        <button class="green" onclick="executePayment('T5')">Exécuter Transaction T5 (25,00 EUR)</button>
-        <button class="amber" onclick="resetPlatform()">Réinitialiser Démo (Débloquer IP)</button>
+      <div id="bo-controls-box" style="margin-top:8px;opacity:0.45;pointer-events:none;transition:opacity 0.25s;">
+        <button id="btn-t0" class="green" onclick="executePayment('T0')">Exécuter Transaction T0 (50,00 EUR)</button>
+        <button id="btn-t5" class="green" onclick="executePayment('T5')">Exécuter Transaction T5 (25,00 EUR)</button>
+        <button id="btn-reset" class="amber" onclick="resetPlatform()">Réinitialiser Démo (Débloquer IP)</button>
+      </div>
+      <div id="operator-session-info" style="display:none;font-size:0.75rem;color:#6ee7b7;margin-top:4px;">
+        Session active : <strong id="op-username-tag">operator_alpha</strong> | Jeton JWT : <span style="color:#38bdf8;">Valide (HMAC-SHA256)</span>
       </div>
       <div id="tx-feedback" style="margin-top:6px;font-size:0.78rem;color:#6ee7b7;"></div>
     </div>
@@ -543,6 +554,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     let userAskedCustom = false;
     let currentLockoutSecs = 0;
     let bioFaceVerified = false;
+    let authenticatedSession = null;
 
     const ATTACK_LABELS = {
       'NOMINAL': 'AUCUNE MENACE (TRAFIC NOMINAL)',
@@ -552,21 +564,99 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       'SATURATION_LATENCE_DOS': '🚨 SATURATION WORKERS & DÉGRADATION LATENCE P95'
     };
 
+    function applyAuthenticationState(isAuth, session) {
+      authenticatedSession = isAuth ? session : null;
+      const badge = document.getElementById('session-badge');
+      const logoutBtn = document.getElementById('session-logout-btn');
+      const lockedNotice = document.getElementById('bo-locked-notice');
+      const controlsBox = document.getElementById('bo-controls-box');
+      const infoEl = document.getElementById('operator-session-info');
+      const opTag = document.getElementById('op-username-tag');
+
+      if (isAuth && session) {
+        if (badge) {
+          badge.textContent = `👤 SESSION : ${session.displayName} (ACTIF)`;
+          badge.style.background = 'rgba(16,185,129,0.2)';
+          badge.style.borderColor = '#10b981';
+          badge.style.color = '#6ee7b7';
+        }
+        if (logoutBtn) logoutBtn.style.display = 'inline-block';
+        if (lockedNotice) lockedNotice.style.display = 'none';
+        if (controlsBox) {
+          controlsBox.style.opacity = '1';
+          controlsBox.style.pointerEvents = 'auto';
+        }
+        if (infoEl) {
+          infoEl.style.display = 'block';
+          if (opTag) opTag.textContent = session.displayName;
+        }
+      } else {
+        if (badge) {
+          badge.textContent = '🔒 SESSION : NON AUTHENTIFIÉ';
+          badge.style.background = 'rgba(239,68,68,0.2)';
+          badge.style.borderColor = '#ef4444';
+          badge.style.color = '#fca5a5';
+        }
+        if (logoutBtn) logoutBtn.style.display = 'none';
+        if (lockedNotice) lockedNotice.style.display = 'flex';
+        if (controlsBox) {
+          controlsBox.style.opacity = '0.45';
+          controlsBox.style.pointerEvents = 'none';
+        }
+        if (infoEl) infoEl.style.display = 'none';
+      }
+    }
+
+    function logoutSession() {
+      applyAuthenticationState(false, null);
+      resetBiometricCycle();
+      const fb = document.getElementById('bio-feedback-msg');
+      if (fb) {
+        fb.textContent = 'Session déconnectée. Opérations sensibles de paiement reverrouillées.';
+        fb.style.color = '#fbbf24';
+      }
+      const txFb = document.getElementById('tx-feedback');
+      if (txFb) {
+        txFb.textContent = 'Opérations verrouillées suite à la déconnexion.';
+        txFb.style.color = '#f87171';
+      }
+    }
+
+    function scrollToBiometrics() {
+      const target = document.getElementById('bio-username-input');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.focus();
+      }
+    }
+
     async function executePayment(label) {
+      if (!authenticatedSession || !authenticatedSession.token) {
+        const fb = document.getElementById('tx-feedback');
+        fb.style.color = '#f87171';
+        fb.textContent = 'Accès refusé : Veuillez d abord vous authentifier par reconnaissance faciale et mot de passe (Section 6).';
+        scrollToBiometrics();
+        return;
+      }
       const amountCents = label === 'T0' ? 5000 : 2500;
       const fb = document.getElementById('tx-feedback');
       fb.style.color = '#93c5fd';
-      fb.textContent = `Exécution de la transaction ${label} (${(amountCents/100).toFixed(2)} EUR)...`;
+      fb.textContent = `Exécution de la transaction ${label} (${(amountCents/100).toFixed(2)} EUR) par ${authenticatedSession.displayName}...`;
       try {
         const res = await fetch('/live/v1/trigger-payment', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({label, amount_cents: amountCents})
+          body: JSON.stringify({
+            label,
+            amount_cents: amountCents,
+            token: authenticatedSession.token,
+            operator_username: authenticatedSession.username
+          })
         });
         const data = await res.json();
         if (res.ok) {
           fb.style.color = '#34d399';
-          fb.textContent = `Transaction ${label} COMMITTED : ${data.transaction.transaction_id}`;
+          fb.textContent = `Transaction ${label} COMMITTED par ${authenticatedSession.displayName} : ${data.transaction.transaction_id}`;
           if (label === 'T0') t0Done = true;
         } else {
           fb.style.color = '#f87171';
@@ -984,11 +1074,22 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           fb.textContent = '✓ Authentification réussie ! LED : Vert fixe 30s. Accès Back-office autorisé.';
           fb.style.color = '#34d399';
           document.getElementById('bio-cam-btn').disabled = false;
+
+          const sel = document.getElementById('bio-username-input');
+          const selText = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
+
+          applyAuthenticationState(true, {
+            token: (data.bundle && data.bundle.access_token) || data.token || '',
+            username: username,
+            displayName: selText,
+            role: (data.bundle && data.bundle.role) || 'Opérateur Back-Office'
+          });
         } else {
           updateEspLedVisual('RED_BLINK_10X');
           fb.textContent = '✗ Mot de passe incorrect ! LED : Rouge clignote 10 fois. Recommencez le cycle.';
           fb.style.color = '#ef4444';
           bioFaceVerified = false;
+          applyAuthenticationState(false, null);
           document.getElementById('bio-password-input').disabled = true;
           document.getElementById('bio-login-btn').disabled = true;
           document.getElementById('bio-cam-btn').disabled = false;
@@ -1002,6 +1103,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 
     function resetBiometricCycle() {
       bioFaceVerified = false;
+      applyAuthenticationState(false, null);
       document.getElementById('bio-password-input').disabled = true;
       document.getElementById('bio-password-input').style.background = '#090d16';
       document.getElementById('bio-password-input').style.color = '#64748b';
@@ -1083,6 +1185,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     window.askOllamaCustom = askOllamaCustom;
     window.updateEspLedVisual = updateEspLedVisual;
     window.resetBiometricCycle = resetBiometricCycle;
+    window.applyAuthenticationState = applyAuthenticationState;
+    window.logoutSession = logoutSession;
+    window.scrollToBiometrics = scrollToBiometrics;
 
     async function refreshBiometricHabilitations() {
       try {
@@ -1732,13 +1837,21 @@ class LiveResilienceCluster:
             "transactions": txs,
         }
 
-    def _execute_operator_payment(self, label: str, amount_cents: int = 5000) -> Dict[str, Any]:
-        with self.auth_app.test_client() as auth_client:
-            tok_resp = auth_client.post(
-                "/auth/v1/token",
-                json={"username": "operator_alpha", "password": "FictiveOp#2026!"},
-            )
-            token = tok_resp.get_json()["access_token"]
+    def _execute_operator_payment(
+        self,
+        label: str,
+        amount_cents: int = 5000,
+        token: Optional[str] = None,
+        operator_username: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        op_user = operator_username or "operator_alpha"
+        if not token:
+            with self.auth_app.test_client() as auth_client:
+                tok_resp = auth_client.post(
+                    "/auth/v1/token",
+                    json={"username": "operator_alpha", "password": "FictiveOp#2026!"},
+                )
+                token = tok_resp.get_json()["access_token"]
 
         idem_key = f"idem-{label.lower()}-{uuid.uuid4().hex[:8]}"
         with self.waf_app.test_client() as waf_client:
@@ -1754,7 +1867,7 @@ class LiveResilienceCluster:
                     "target_account_id": "ACC-FR-002",
                     "amount_cents": int(amount_cents),
                     "currency": "EUR",
-                    "description": f"Transaction métier {label} (Groupe 2 - Live)",
+                    "description": f"Transaction métier {label} ({op_user} - Live)",
                 },
             )
             tx_data = tx_resp.get_json()
@@ -1768,10 +1881,10 @@ class LiveResilienceCluster:
             stage=f"BUSINESS_TX_{label.upper()}",
             event_type="OPERATOR_PAYMENT_COMMITTED",
             severity="INFO",
-            message=f"Transaction métier {label} réussie et persistée ({amount_cents} centimes).",
-            details={"transaction_id": tx_data["transaction_id"], "idempotency_key": idem_key},
+            message=f"Transaction métier {label} réussie et persistée par {op_user} ({amount_cents} centimes).",
+            details={"transaction_id": tx_data["transaction_id"], "idempotency_key": idem_key, "operator": op_user},
         )
-        return {"transaction": tx_data, "invariant": inv}
+        return {"transaction": tx_data, "invariant": inv, "operator": op_user}
 
     def _attach_live_routes(self, app: Flask, is_waf: bool = False) -> None:
         @app.route("/", methods=["GET"])
@@ -1931,8 +2044,23 @@ class LiveResilienceCluster:
             body = request.get_json(silent=True) or {}
             label = str(body.get("label", "T0"))
             amount_cents = int(body.get("amount_cents", 5000))
+            token = body.get("token")
+            operator_username = body.get("operator_username", "operator_alpha")
+
+            # Sécurité : Vérification du jeton JWT de session opérateur
+            if token:
+                valid, payload_or_err = self.auth_engine.verify_jwt(token)
+                if not valid:
+                    return jsonify({"error": f"Jeton JWT opérateur invalide ou expiré ({payload_or_err}). Veuillez vous authentifier."}), 403
+                if isinstance(payload_or_err, dict):
+                    operator_username = payload_or_err.get("sub", operator_username)
+            else:
+                return jsonify({"error": "Accès refusé : Authentification biométrique + mot de passe requise (Section 6)."}), 401
+
             try:
-                res = self._execute_operator_payment(label, amount_cents)
+                res = self._execute_operator_payment(
+                    label, amount_cents, token=token, operator_username=operator_username
+                )
                 return jsonify(res), 201
             except Exception as exc:
                 return jsonify({"error": str(exc)}), 500
