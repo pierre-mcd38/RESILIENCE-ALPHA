@@ -485,6 +485,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <div style="display:flex;gap:6px;">
           <input id="bio-password-input" type="password" placeholder="Mot de passe (bloqué tant que visage non validé)" disabled value="FictiveOp#2026!" style="flex:1;background:#090d16;border:1px solid #1e293b;color:#64748b;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
           <button id="bio-login-btn" class="green" disabled onclick="validatePasswordAndLogin()">🔑 2. Valider Mot de Passe</button>
+          <button class="amber" style="font-size:0.75rem;padding:6px 10px;margin:0;" onclick="resetBiometricCycle()" title="Réinitialiser l'étape pour tester à nouveau">🔄 Recommencer</button>
         </div>
 
         <div id="bio-feedback-msg" style="margin-top:6px;font-size:0.75rem;color:#94a3b8;">
@@ -941,10 +942,12 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           document.getElementById('bio-password-input').style.background = '#020617';
           document.getElementById('bio-password-input').style.color = '#fff';
           document.getElementById('bio-login-btn').disabled = false;
+          document.getElementById('bio-cam-btn').disabled = false;
           updateEspLedVisual('GREEN_BLINK');
         } else {
           bioFaceVerified = false;
           updateEspLedVisual('RED_SOLID_30S');
+          document.getElementById('bio-cam-btn').disabled = false;
           if (data.locked) {
             currentLockoutSecs = data.locked_seconds_remaining || 300;
             document.getElementById('lockout-secs').textContent = currentLockoutSecs;
@@ -954,7 +957,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           } else {
             fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s. Vous pouvez réexaminer ou changer d'opérateur.`;
             fb.style.color = '#fbbf24';
-            document.getElementById('bio-cam-btn').disabled = false;
           }
         }
       } catch (err) {
@@ -981,6 +983,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           updateEspLedVisual('GREEN_SOLID_30S');
           fb.textContent = '✓ Authentification réussie ! LED : Vert fixe 30s. Accès Back-office autorisé.';
           fb.style.color = '#34d399';
+          document.getElementById('bio-cam-btn').disabled = false;
         } else {
           updateEspLedVisual('RED_BLINK_10X');
           fb.textContent = '✗ Mot de passe incorrect ! LED : Rouge clignote 10 fois. Recommencez le cycle.';
@@ -992,8 +995,24 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
       } catch (err) {
         fb.textContent = 'Erreur : ' + err.message;
+        document.getElementById('bio-cam-btn').disabled = false;
       }
       refreshBiometricHabilitations();
+    }
+
+    function resetBiometricCycle() {
+      bioFaceVerified = false;
+      document.getElementById('bio-password-input').disabled = true;
+      document.getElementById('bio-password-input').style.background = '#090d16';
+      document.getElementById('bio-password-input').style.color = '#64748b';
+      document.getElementById('bio-login-btn').disabled = true;
+      document.getElementById('bio-cam-btn').disabled = false;
+      const fb = document.getElementById('bio-feedback-msg');
+      if (fb) {
+        fb.textContent = "Cycle réinitialisé. Vous pouvez relancer '1. Analyser mon visage' à tout moment.";
+        fb.style.color = "#94a3b8";
+      }
+      testLedState('OFF');
     }
 
     async function testLedState(state) {
@@ -1063,6 +1082,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     window.askOllama = askOllama;
     window.askOllamaCustom = askOllamaCustom;
     window.updateEspLedVisual = updateEspLedVisual;
+    window.resetBiometricCycle = resetBiometricCycle;
 
     async function refreshBiometricHabilitations() {
       try {
