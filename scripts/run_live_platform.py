@@ -838,7 +838,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         led.style.background = '#475569';
         led.style.boxShadow = 'none';
         title.textContent = 'LED Bicolore : ÉTEINTE (OFF)';
-        sub.textContent = '⚪ ESP-12F en attente d\'identification';
+        sub.textContent = "⚪ ESP-12F en attente d'identification";
       }
     }
 
@@ -910,7 +910,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         fb.style.color = '#f87171';
         return;
       }
-      fb.textContent = '📸 Déclenchement de la caméra de votre PC portable et analyse du visage par l\'IA...';
+      fb.textContent = "📸 Déclenchement de la caméra de votre PC portable et analyse du visage par l'IA...";
       fb.style.color = '#38bdf8';
       document.getElementById('bio-cam-btn').disabled = true;
 
