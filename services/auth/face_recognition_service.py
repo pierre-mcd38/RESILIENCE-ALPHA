@@ -36,6 +36,7 @@ class BiometricFaceService:
     LOCKOUT_DURATION_SECONDS: int = 300  # 5 minutes de verrouillage
     MAX_FAILED_ATTEMPTS: int = 2         # 2 essais max avant blocage
     SIMILARITY_THRESHOLD: float = 0.70   # Seuil de reconnaissance cosinus
+    ENABLE_LOCKOUT: bool = False         # Désactivé par défaut pour permettre des tests libres illimités
 
     def __init__(self, storage_path: Optional[str] = None) -> None:
         self.root_dir = Path(__file__).resolve().parents[2]
@@ -181,6 +182,8 @@ class BiometricFaceService:
 
     def check_user_lockout(self, username: str) -> Tuple[bool, int]:
         """Vérifie si l'utilisateur est actuellement verrouillé pour 5 minutes."""
+        if not self.ENABLE_LOCKOUT:
+            return False, 0
         with self._lock:
             now = time.time()
             locked_until = self._locked_until.get(username, 0)
@@ -288,8 +291,8 @@ class BiometricFaceService:
         # ESP8266 : LED Rouge FIXE pendant 30 secondes
         esp_controller.set_led_state("RED_SOLID_30S", f"Echec visage {username} ({reason})")
 
-        if current_fails >= self.MAX_FAILED_ATTEMPTS:
-            # 2e échec consécutif -> Blocage 5 minutes
+        if self.ENABLE_LOCKOUT and current_fails >= self.MAX_FAILED_ATTEMPTS:
+            # 2e échec consécutif -> Blocage 5 minutes (actif seulement si ENABLE_LOCKOUT=True)
             self._locked_until[username] = time.time() + self.LOCKOUT_DURATION_SECONDS
             return {
                 "face_verified": False,
@@ -301,13 +304,12 @@ class BiometricFaceService:
                 "esp_led_state": "RED_SOLID_30S",
             }
         else:
-            # 1er échec -> L'utilisateur peut recommencer 1 fois
             return {
                 "face_verified": False,
                 "status": "RETRY_ALLOWED",
                 "locked": False,
-                "attempts_remaining": 1,
-                "message": f"Visage non reconnu. Il vous reste 1 tentative avant blocage de 5 minutes.",
+                "attempts_remaining": 99 if not self.ENABLE_LOCKOUT else max(0, self.MAX_FAILED_ATTEMPTS - current_fails),
+                "message": f"{reason} Verrouillage désactivé pour les tests : vous pouvez réessayer immédiatement !",
                 "esp_led_state": "RED_SOLID_30S",
             }
 

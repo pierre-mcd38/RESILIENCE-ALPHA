@@ -1926,6 +1926,8 @@ class LiveResilienceCluster:
                 self.waf_engine.request_logs.clear()
                 self.waf_engine.ip_request_windows.clear()
                 self.waf_engine.ip_expensive_windows.clear()
+            biometric_service._locked_until.clear()
+            biometric_service._failed_attempts.clear()
             self.api_state.recycle_workers()
             self.detector.reset_state()
             self.last_detected_attack_type = "NOMINAL"
@@ -1961,6 +1963,8 @@ class LiveResilienceCluster:
                 self.waf_engine.request_logs.clear()
                 self.waf_engine.ip_request_windows.clear()
                 self.waf_engine.ip_expensive_windows.clear()
+            biometric_service._locked_until.clear()
+            biometric_service._failed_attempts.clear()
             self.api_state.recycle_workers()
             self.detector.reset_state()
             self.last_detected_attack_type = "NOMINAL"

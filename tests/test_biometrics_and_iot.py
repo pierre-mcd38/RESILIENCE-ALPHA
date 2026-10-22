@@ -89,6 +89,7 @@ class TestBiometricAndIoTFirmware(unittest.TestCase):
         Consigne : 1 réessai autorisé (2 tentatives au total).
         Si 2e échec : identifiant bloqué pendant 5 minutes et LED rouge fixe 30s.
         """
+        self.bio_service.ENABLE_LOCKOUT = True
         username = "unknown_hacker_test"
 
         # 1ère tentative infructueuse
