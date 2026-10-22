@@ -2075,7 +2075,8 @@ class LiveResilienceCluster:
 
         services = [
             ("waf-gateway", self.waf_app, 8080),
-            ("frontend-ui", self.frontend_app, 3000),
+            ("frontend-ui", self.frontend_app, 3300),
+            ("frontend-ui-legacy", self.frontend_app, 3000),
             ("api", self.api_app, 8001),
             ("auth", self.auth_app, 8002),
             ("detector", self.detector_app, 8003),
@@ -2085,11 +2086,14 @@ class LiveResilienceCluster:
         ]
 
         for name, flask_app, port in services:
-            srv = make_server("0.0.0.0", port, flask_app, threaded=True)
-            t = threading.Thread(target=srv.serve_forever, name=f"srv-{name}", daemon=True)
-            t.start()
-            self._servers.append((name, port, srv))
-            print(f"[RESILIENCE-G2] Service '{name}' actif sur http://192.168.137.1:{port} (et http://127.0.0.1:{port})")
+            try:
+                srv = make_server("0.0.0.0", port, flask_app, threaded=True)
+                t = threading.Thread(target=srv.serve_forever, name=f"srv-{name}", daemon=True)
+                t.start()
+                self._servers.append((name, port, srv))
+                print(f"[RESILIENCE-G2] Service '{name}' actif sur http://192.168.137.1:{port} (et http://127.0.0.1:{port})")
+            except Exception as exc:
+                print(f"[RESILIENCE-G2-WARN] Impossible d'écouter sur le port {port} ({name}) : {exc}")
 
         aiops_thread = threading.Thread(target=self._aiops_loop, name="aiops-loop", daemon=True)
         aiops_thread.start()
@@ -2115,7 +2119,7 @@ if __name__ == "__main__":
     cluster.start()
     print("\n==================================================================")
     print(" PLATEFORME PROJECT RESILIENCE-ALPHA (GROUPE 2) EN LIGNE")
-    print(" - Centre IA & SOC      : http://127.0.0.1:3000  | http://192.168.137.1:3000")
+    print(" - Centre IA & SOC      : http://localhost:3300  | http://127.0.0.1:3000  | http://192.168.137.1:3000")
     print(" - Supervision Grafana  : http://127.0.0.1:3001/d/resilience-alpha-main")
     print(" - Passerelle WAF       : http://127.0.0.1:8080  | http://192.168.137.1:8080")
     print(" - Console Tir 2e PC    : http://192.168.137.1:8080/attacker")
