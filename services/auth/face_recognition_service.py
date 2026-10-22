@@ -196,6 +196,7 @@ class BiometricFaceService:
         - Pilote l'ESP8266 (Vert clignotant si OK, Rouge fixe 30s si échec).
         """
         with self._lock:
+            self._load_or_seed_enrollments()
             # 1. Vérification du verrouillage 5 minutes
             is_locked, remaining = self.check_user_lockout(username)
             if is_locked:

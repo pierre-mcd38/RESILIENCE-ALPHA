@@ -450,14 +450,30 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
       </div>
 
+      <!-- Prévisualisation Vidéo Caméra Intégrée PC Portable -->
+      <div style="display:flex;gap:10px;align-items:center;background:#090d1a;padding:8px 10px;border-radius:8px;margin-bottom:8px;border:1px solid #1e293b;">
+        <div style="position:relative;width:140px;height:105px;border-radius:6px;overflow:hidden;border:1px solid #38bdf8;background:#000;flex-shrink:0;">
+          <video id="laptop-cam-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;transform:scaleX(-1);"></video>
+          <div style="position:absolute;top:3px;left:4px;background:rgba(0,0,0,0.65);color:#38bdf8;font-size:0.62rem;padding:1px 4px;border-radius:3px;font-family:Consolas,monospace;">CAMÉRA PC</div>
+        </div>
+        <div style="font-size:0.75rem;color:#94a3b8;line-height:1.35;">
+          <strong style="color:#e2e8f0;display:block;margin-bottom:2px;">Caméra Intégrée PC Portable &amp; Capteur IR :</strong>
+          Positionnez-vous face à votre écran. Si c'est votre première fois, cliquez sur <strong>Enrôler</strong> pour mémoriser votre visage :
+          <div style="margin-top:6px;display:flex;gap:6px;">
+            <button class="purple" style="font-size:0.73rem;padding:4px 8px;margin:0;" onclick="enrollMyFaceSnapshot()">📸 Enrôler mon visage en 1-Clic</button>
+          </div>
+        </div>
+      </div>
+      <canvas id="laptop-cam-canvas" style="display:none;"></canvas>
+
       <!-- Formulaire 3 étapes -->
       <div style="background:#0f172a;padding:10px;border-radius:8px;border:1px solid #1e293b;">
         <div style="font-size:0.74rem;color:#cbd5e1;margin-bottom:6px;">
-          <strong>Cycle de Sécurité Physique :</strong> Caméra USB PC Hôte &rarr; IA Visage (2 essais max) &rarr; LED Vert/Rouge &rarr; Mot de Passe
+          <strong>Cycle de Sécurité Physique :</strong> Caméra PC Portable &rarr; IA Visage (2 essais max) &rarr; LED Bicolore ESP-12F &rarr; Mot de Passe
         </div>
         <div style="display:flex;gap:6px;margin-bottom:6px;">
           <input id="bio-username-input" type="text" placeholder="Identifiant (ex: operator_alpha)" value="operator_alpha" style="flex:1;background:#020617;border:1px solid #334155;color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
-          <button class="blue" id="bio-cam-btn" onclick="triggerBiometricFaceCheck()">📸 1. Caméra USB &amp; IA Visage</button>
+          <button class="blue" id="bio-cam-btn" onclick="triggerBiometricFaceCheck()">📸 1. Analyser mon visage</button>
         </div>
 
         <div style="display:flex;gap:6px;">
@@ -518,6 +534,8 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     let t0Done = false;
     let lastAutoIncidentId = null;
     let userAskedCustom = false;
+    let currentLockoutSecs = 0;
+    let bioFaceVerified = false;
 
     const ATTACK_LABELS = {
       'NOMINAL': 'AUCUNE MENACE (TRAFIC NOMINAL)',
@@ -777,9 +795,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       } catch (e) {}
     }
 
-    let currentLockoutSecs = 0;
-    let bioFaceVerified = false;
-
     setInterval(() => {
       if (currentLockoutSecs > 0) {
         currentLockoutSecs--;
@@ -827,6 +842,66 @@ DASHBOARD_HTML = """<!DOCTYPE html>
       }
     }
 
+    // Flux vidéo de la caméra intégrée du PC portable
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 640 }, height: { ideal: 480 } } })
+        .then(stream => {
+          const vid = document.getElementById('laptop-cam-video');
+          if (vid) vid.srcObject = stream;
+        })
+        .catch(err => {
+          console.warn("Accès vidéo navigateur (fallback backend actif) :", err);
+        });
+    }
+
+    function captureLaptopVideoFrame() {
+      const vid = document.getElementById('laptop-cam-video');
+      const cvs = document.getElementById('laptop-cam-canvas');
+      if (vid && vid.videoWidth > 0 && cvs) {
+        cvs.width = vid.videoWidth;
+        cvs.height = vid.videoHeight;
+        const ctx = cvs.getContext('2d');
+        ctx.drawImage(vid, 0, 0, cvs.width, cvs.height);
+        return cvs.toDataURL('image/jpeg', 0.9);
+      }
+      return null;
+    }
+
+    async function enrollMyFaceSnapshot() {
+      const username = document.getElementById('bio-username-input').value.trim() || 'operator_alpha';
+      const fb = document.getElementById('bio-feedback-msg');
+      fb.textContent = "📸 Capture de votre visage depuis la caméra intégrée en cours...";
+      fb.style.color = "#38bdf8";
+
+      const b64 = captureLaptopVideoFrame();
+      try {
+        const res = await fetch('/live/v1/bio-enroll', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            username: username,
+            display_name: username === 'operator_alpha' ? 'Opérateur Marchand Alpha' : username,
+            image_b64: b64
+          })
+        });
+        const d = await res.json();
+        if (res.ok && d.success) {
+          fb.textContent = `✓ Votre visage a été mémorisé avec succès pour '${username}' ! Cliquez sur 'Analyser mon visage'.`;
+          fb.style.color = "#34d399";
+          currentLockoutSecs = 0;
+          document.getElementById('lockout-countdown').style.display = 'none';
+          document.getElementById('bio-cam-btn').disabled = false;
+        } else {
+          fb.textContent = "Erreur enrôlement : " + (d.error || d.message || "Visage non détecté");
+          fb.style.color = "#f87171";
+        }
+      } catch (e) {
+        fb.textContent = "Erreur : " + e.message;
+        fb.style.color = "#f87171";
+      }
+      refreshBiometricHabilitations();
+    }
+
     async function triggerBiometricFaceCheck() {
       const username = document.getElementById('bio-username-input').value.trim();
       const fb = document.getElementById('bio-feedback-msg');
@@ -835,15 +910,17 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         fb.style.color = '#f87171';
         return;
       }
-      fb.textContent = '📸 Activation de la caméra USB du PC Hôte et extraction du descripteur 128D...';
+      fb.textContent = '📸 Déclenchement de la caméra de votre PC portable et analyse du visage par l\'IA...';
       fb.style.color = '#38bdf8';
       document.getElementById('bio-cam-btn').disabled = true;
+
+      const b64 = captureLaptopVideoFrame();
 
       try {
         const res = await fetch('/live/v1/bio-identify', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({username: username, use_camera: true})
+          body: JSON.stringify({username: username, use_camera: true, image_b64: b64})
         });
         const data = await res.json();
         if (res.ok && data.face_verified) {
@@ -911,25 +988,72 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     async function testLedState(state) {
-      await fetch('/live/v1/bio-led-test', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({state: state})
-      });
-      updateEspLedVisual(state);
+      const fb = document.getElementById('bio-feedback-msg');
+      if (fb) {
+        fb.textContent = `Envoi commande ESP8266 : [${state}]...`;
+        fb.style.color = '#38bdf8';
+      }
+      try {
+        const res = await fetch('/live/v1/bio-led-test', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({state: state})
+        });
+        const d = await res.json();
+        updateEspLedVisual(state);
+        if (fb) {
+          fb.textContent = `✓ Ordre envoyé à l'ESP8266 (${state}) : ${d.esp_status ? d.esp_status.last_command : 'OK'}`;
+          fb.style.color = '#34d399';
+        }
+      } catch (err) {
+        if (fb) {
+          fb.textContent = `Erreur envoi LED : ${err.message}`;
+          fb.style.color = '#ef4444';
+        }
+      }
     }
 
     async function resetOperatorLockout(u) {
-      await fetch('/live/v1/bio-reset', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({username: u})
-      });
-      currentLockoutSecs = 0;
-      document.getElementById('lockout-countdown').style.display = 'none';
-      document.getElementById('bio-cam-btn').disabled = false;
+      const fb = document.getElementById('bio-feedback-msg');
+      if (fb) {
+        fb.textContent = `Déblocage de ${u}...`;
+        fb.style.color = '#38bdf8';
+      }
+      try {
+        await fetch('/live/v1/bio-reset', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: u})
+        });
+        currentLockoutSecs = 0;
+        document.getElementById('lockout-countdown').style.display = 'none';
+        document.getElementById('bio-cam-btn').disabled = false;
+        if (fb) {
+          fb.textContent = `✓ Opérateur ${u} débloqué avec succès. Vous pouvez relancer la reconnaissance faciale.`;
+          fb.style.color = '#34d399';
+        }
+      } catch (err) {
+        if (fb) {
+          fb.textContent = `Erreur déblocage : ${err.message}`;
+          fb.style.color = '#ef4444';
+        }
+      }
       refreshBiometricHabilitations();
     }
+
+    // Export explicite sur window pour garantir l'accessibilité dans tous les navigateurs
+    window.testLedState = testLedState;
+    window.triggerBiometricFaceCheck = triggerBiometricFaceCheck;
+    window.validatePasswordAndLogin = validatePasswordAndLogin;
+    window.enrollMyFaceSnapshot = enrollMyFaceSnapshot;
+    window.resetOperatorLockout = resetOperatorLockout;
+    window.refreshBiometricHabilitations = refreshBiometricHabilitations;
+    window.executePayment = executePayment;
+    window.resetPlatform = resetPlatform;
+    window.triggerAttackVector = triggerAttackVector;
+    window.askOllama = askOllama;
+    window.askOllamaCustom = askOllamaCustom;
+    window.updateEspLedVisual = updateEspLedVisual;
 
     async function refreshBiometricHabilitations() {
       try {
@@ -1718,12 +1842,31 @@ class LiveResilienceCluster:
 
         @app.route("/live/v1/bio-identify", methods=["POST"])
         def live_bio_identify() -> Tuple[Response, int]:
+            from services.auth.app import _decode_b64_image
             body = request.get_json(silent=True) or {}
             username = str(body.get("username", "")).strip()
             use_cam = bool(body.get("use_camera", True))
-            res = biometric_service.verify_operator_face(username, use_camera=use_cam)
+            image_b64 = body.get("image_b64")
+            frame = _decode_b64_image(image_b64) if image_b64 else None
+            res = biometric_service.verify_operator_face(username, frame=frame, use_camera=use_cam)
             code = 200 if res.get("face_verified") else (423 if res.get("locked") else 401)
             return jsonify(res), code
+
+        @app.route("/live/v1/bio-enroll", methods=["POST"])
+        def live_bio_enroll() -> Tuple[Response, int]:
+            from services.auth.app import _decode_b64_image
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "operator_alpha")).strip()
+            display_name = str(body.get("display_name", username)).strip()
+            image_b64 = body.get("image_b64")
+            frame = _decode_b64_image(image_b64) if image_b64 else None
+            if frame is None:
+                ok, frame, msg = biometric_service.capture_frame_from_usb_camera(0)
+                if not ok:
+                    return jsonify({"error": msg, "success": False}), 400
+            res = biometric_service.enroll_user_face(username, display_name, "merchant_operator", frame)
+            biometric_service.reset_lockout(username)
+            return jsonify(res), 200
 
         @app.route("/live/v1/bio-login", methods=["POST"])
         def live_bio_login() -> Tuple[Response, int]:

@@ -53,7 +53,8 @@ enum LedState {
     STATE_GREEN_BLINKING,
     STATE_RED_SOLID_30S,
     STATE_GREEN_SOLID_30S,
-    STATE_RED_BLINK_10X
+    STATE_RED_BLINK_10X,
+    STATE_DUAL_BLINK
 };
 
 LedState currentState = STATE_OFF;
@@ -96,6 +97,9 @@ void changeState(LedState newState, const char* reason = "") {
         case STATE_RED_BLINK_10X:
             Serial.println("ROUGE CLIGNOTANT 10x (Mot de passe invalide)");
             break;
+        case STATE_DUAL_BLINK:
+            Serial.println("BICOLORE CLIGNOTANT CONTINU (Vert & Rouge alternes)");
+            break;
     }
     if (reason && strlen(reason) > 0) {
         Serial.print("   -> Declencheur : ");
@@ -133,6 +137,8 @@ void handleLedControl() {
         changeState(STATE_GREEN_SOLID_30S, "HTTP: Mot de passe valide");
     } else if (stateArg == "RED_BLINK_10X") {
         changeState(STATE_RED_BLINK_10X, "HTTP: Mot de passe invalide");
+    } else if (stateArg == "DUAL_BLINK" || stateArg == "POLICE") {
+        changeState(STATE_DUAL_BLINK, "HTTP: Clignotement continu bicolore");
     } else if (stateArg == "OFF") {
         changeState(STATE_OFF, "HTTP: Extinction");
     } else {
@@ -169,6 +175,8 @@ void processSerialCommands() {
                 changeState(STATE_GREEN_SOLID_30S, "Serial: Mot de passe valide");
             } else if (cmd == "RED_BLINK_10X") {
                 changeState(STATE_RED_BLINK_10X, "Serial: Mot de passe invalide");
+            } else if (cmd == "DUAL_BLINK" || cmd == "POLICE") {
+                changeState(STATE_DUAL_BLINK, "Serial: Clignotement bicolore continu");
             } else if (cmd == "OFF") {
                 changeState(STATE_OFF, "Serial: Extinction");
             } else if (cmd == "TEST_PINS") {
@@ -230,6 +238,15 @@ void updateStateMachine() {
                         changeState(STATE_OFF, "Fin des 10 clignotements rouges");
                     }
                 }
+            }
+            break;
+
+        case STATE_DUAL_BLINK:
+            // Clignote en continu en alternant Vert et Rouge (style gyrophare bicolore, 250ms)
+            if (now - lastBlinkTime >= 250) {
+                lastBlinkTime = now;
+                blinkState = !blinkState;
+                setPhysicalLeds(blinkState, !blinkState);
             }
             break;
     }
