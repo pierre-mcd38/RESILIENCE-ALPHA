@@ -494,7 +494,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         </div>
 
         <div style="display:flex;gap:6px;">
-          <input id="bio-password-input" type="password" placeholder="Mot de passe (bloqué tant que visage non validé)" disabled value="FictiveOp#2026!" style="flex:1;background:#090d16;border:1px solid #1e293b;color:#64748b;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
+          <input id="bio-password-input" type="password" placeholder="Mot de passe (bloqué tant que visage non validé)" disabled value="toto" style="flex:1;background:#090d16;border:1px solid #1e293b;color:#64748b;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
           <button id="bio-login-btn" class="green" disabled onclick="validatePasswordAndLogin()">🔑 2. Valider Mot de Passe</button>
           <button class="amber" style="font-size:0.75rem;padding:6px 10px;margin:0;" onclick="resetBiometricCycle()" title="Réinitialiser l'étape pour tester à nouveau">🔄 Recommencer</button>
         </div>
