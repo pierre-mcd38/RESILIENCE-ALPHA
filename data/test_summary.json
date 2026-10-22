@@ -1,8 +1,8 @@
 {
-  "timestamp": "2026-10-21T09:53:38.059782+00:00",
-  "duration_seconds": 75.05,
+  "timestamp": "2026-10-22T07:49:09.424217+00:00",
+  "duration_seconds": 167.51,
   "unit_and_integration_tests": {
-    "total_run": 15,
+    "total_run": 21,
     "failures": 0,
     "errors": 0,
     "status": "PASS"
@@ -25,6 +25,10 @@
       "status": "PASS"
     },
     {
+      "check": "Tests Habilitations Biométriques (IA Visage, Caméra USB, Lockout 5 min) & IoT ESP-12F LED",
+      "status": "PASS"
+    },
+    {
       "check": "3 Répétitions Chronométrées de Bout en Bout (T0 -> Attaque -> ML -> Remédiation -> T5)",
       "status": "PASS"
     },
@@ -38,8 +42,8 @@
     },
     {
       "check": "Déploiement Conteneurs sur Démon Docker Desktop (docker compose up)",
-      "status": "STANDBY_READY",
-      "reason": "Démon Docker actif ; prêt pour déploiement via scripts/up.ps1"
+      "status": "BLOCKED",
+      "reason": "Service Windows com.docker.service arrêté ; nécessite le démarrage de Docker Desktop par l'opérateur."
     },
     {
       "check": "Tir Offensif Réseau depuis le 2e PC (PC Attaquant 192.168.137.135 -> 192.168.137.1)",

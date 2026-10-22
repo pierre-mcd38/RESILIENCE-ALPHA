@@ -54,3 +54,7 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+.pio/
+**/.pio/
+cmake-build-*/
+**/.clangd/

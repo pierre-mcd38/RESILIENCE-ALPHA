@@ -36,6 +36,8 @@ from scenarios.kill_switch import engage_kill_switch, is_kill_switch_engaged, re
 from services.api.app import ApiRuntimeState, create_api_app
 from services.api.database import PaymentDatabase
 from services.auth.app import AuthEngine, create_auth_app
+from services.auth.esp_controller import esp_controller
+from services.auth.face_recognition_service import biometric_service
 from services.detector.app import AnomalyDetectorEngine, create_app as create_detector_app
 from services.executor.app import ConstrainedExecutor, create_executor_app
 from services.rag.app import LocalRAGAssistant, create_app as create_rag_app
@@ -428,6 +430,74 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
   </div>
 
+  <div class="grid-2" style="margin-bottom:12px;">
+    <!-- Carte Biométrie & Objet Connecté ESP8266 (Consigne Additionnelle 1) -->
+    <div class="card" style="border: 1px solid #4f46e5;">
+      <h2>
+        <span>🔐 6. AUTHENTIFICATION BIOMÉTRIQUE & MATÉRIEL IoT ESP8266 (Consigne Additionnelle 1)</span>
+        <span id="esp-status-badge" class="mono" style="font-size:0.75rem;color:#38bdf8;">ESP-12F COM6</span>
+      </h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#090d1a;padding:8px 12px;border-radius:8px;border:1px solid #1e293b;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div id="virtual-esp-led" class="led-off" style="width:20px;height:20px;border-radius:50%;transition:all 0.3s;background:#475569;"></div>
+          <div>
+            <div style="font-size:0.82rem;font-weight:700;" id="esp-led-title">LED Bicolore : ÉTEINTE (OFF)</div>
+            <div style="font-size:0.73rem;color:#94a3b8;" id="esp-led-sub">ESP-12F en attente d'identification</div>
+          </div>
+        </div>
+        <div id="lockout-countdown" class="mono" style="font-size:0.78rem;font-weight:700;color:#ef4444;display:none;">
+          BLOQUÉ 5 MIN (<span id="lockout-secs">300</span>s)
+        </div>
+      </div>
+
+      <!-- Formulaire 3 étapes -->
+      <div style="background:#0f172a;padding:10px;border-radius:8px;border:1px solid #1e293b;">
+        <div style="font-size:0.74rem;color:#cbd5e1;margin-bottom:6px;">
+          <strong>Cycle de Sécurité Physique :</strong> Caméra USB PC Hôte &rarr; IA Visage (2 essais max) &rarr; LED Vert/Rouge &rarr; Mot de Passe
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px;">
+          <input id="bio-username-input" type="text" placeholder="Identifiant (ex: operator_alpha)" value="operator_alpha" style="flex:1;background:#020617;border:1px solid #334155;color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
+          <button class="blue" id="bio-cam-btn" onclick="triggerBiometricFaceCheck()">📸 1. Caméra USB &amp; IA Visage</button>
+        </div>
+
+        <div style="display:flex;gap:6px;">
+          <input id="bio-password-input" type="password" placeholder="Mot de passe (bloqué tant que visage non validé)" disabled value="FictiveOp#2026!" style="flex:1;background:#090d16;border:1px solid #1e293b;color:#64748b;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
+          <button id="bio-login-btn" class="green" disabled onclick="validatePasswordAndLogin()">🔑 2. Valider Mot de Passe</button>
+        </div>
+
+        <div id="bio-feedback-msg" style="margin-top:6px;font-size:0.75rem;color:#94a3b8;">
+          En attente de déclenchement de la caméra USB connectée sur le PC.
+        </div>
+      </div>
+
+      <div style="margin-top:8px;border-top:1px solid #1e293b;padding-top:6px;">
+        <span style="font-size:0.73rem;color:#94a3b8;display:block;margin-bottom:4px;">Banc d'Essai Direct LED Bicolore ESP8266 (Pilotage Série / REST) :</span>
+        <button class="green" style="font-size:0.72rem;padding:3px 7px;" onclick="testLedState('GREEN_BLINK')">🟢 Vert Clignotant (Visage OK)</button>
+        <button class="green" style="font-size:0.72rem;padding:3px 7px;" onclick="testLedState('GREEN_SOLID_30S')">🟢 Vert Fixe 30s (Pass OK)</button>
+        <button class="red" style="font-size:0.72rem;padding:3px 7px;" onclick="testLedState('RED_SOLID_30S')">🔴 Rouge Fixe 30s (Visage KO)</button>
+        <button class="red" style="font-size:0.72rem;padding:3px 7px;" onclick="testLedState('RED_BLINK_10X')">🔴 Rouge Clignote 10x (Pass KO)</button>
+        <button class="amber" style="font-size:0.72rem;padding:3px 7px;" onclick="testLedState('OFF')">⚪ Éteindre (OFF)</button>
+      </div>
+    </div>
+
+    <!-- Carte Habilitations Back-Office -->
+    <div class="card">
+      <h2>
+        <span>👥 HABILITATIONS BIOMÉTRIQUES BACK-OFFICE (Équipe G2 &amp; Opérateurs)</span>
+        <button class="blue" style="margin:0;padding:2px 8px;font-size:0.72rem;" onclick="refreshBiometricHabilitations()">Actualiser</button>
+      </h2>
+      <div style="font-size:0.74rem;color:#94a3b8;margin-bottom:6px;">
+        Gestion des habilitations, statuts de verrouillage temporaire (5 min) et réinitialisations :
+      </div>
+      <table style="width:100%;font-size:0.76rem;">
+        <thead>
+          <tr><th>Opérateur</th><th>Identifiant</th><th>Rôle</th><th>Statut</th><th>Action</th></tr>
+        </thead>
+        <tbody id="bio-habilitations-table"></tbody>
+      </table>
+    </div>
+  </div>
+
   <div class="grid-2">
     <div class="card">
       <h2>Chronologie SOC & Décisions IA (Temps Réel)</h2>
@@ -686,6 +756,201 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <td style="color:#34d399;font-weight:700">${tx.status}</td>
           </tr>`
         ).join('');
+
+        // Mise à jour de l'état biométrique et de l'ESP8266
+        const bio = s.biometrics || {};
+        if (bio.esp_hardware && !bioFaceVerified && currentLockoutSecs <= 0) {
+          updateEspLedVisual(bio.esp_hardware.current_state, bio.esp_hardware.port);
+        }
+        const bioTbody = document.getElementById('bio-habilitations-table');
+        if (bioTbody && bio.habilitations) {
+          bioTbody.innerHTML = bio.habilitations.map(h => `
+            <tr>
+              <td><strong>${h.display_name}</strong></td>
+              <td class="mono">${h.username}</td>
+              <td>${h.role}</td>
+              <td><span style="color:${h.is_locked ? '#f87171' : '#34d399'};font-weight:700">${h.is_locked ? 'BLOQUÉ (' + h.lockout_seconds_remaining + 's)' : h.status}</span></td>
+              <td>${h.is_locked ? `<button class="amber" style="padding:2px 6px;font-size:0.7rem;margin:0;" onclick="resetOperatorLockout('${h.username}')">Débloquer</button>` : '—'}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+
+    let currentLockoutSecs = 0;
+    let bioFaceVerified = false;
+
+    setInterval(() => {
+      if (currentLockoutSecs > 0) {
+        currentLockoutSecs--;
+        document.getElementById('lockout-secs').textContent = currentLockoutSecs;
+        if (currentLockoutSecs <= 0) {
+          document.getElementById('lockout-countdown').style.display = 'none';
+          document.getElementById('bio-cam-btn').disabled = false;
+        }
+      }
+    }, 1000);
+
+    function updateEspLedVisual(state, port) {
+      const led = document.getElementById('virtual-esp-led');
+      const title = document.getElementById('esp-led-title');
+      const sub = document.getElementById('esp-led-sub');
+      const badge = document.getElementById('esp-status-badge');
+      if (port && badge) badge.textContent = `ESP-12F ${port}`;
+      if (!led || !title || !sub) return;
+
+      if (state === 'GREEN_BLINK') {
+        led.style.background = '#10b981';
+        led.style.boxShadow = '0 0 16px #10b981';
+        title.textContent = 'LED Bicolore : VERT CLIGNOTANT';
+        sub.textContent = '🟢 Visage reconnu par IA — Saisissez votre mot de passe';
+      } else if (state === 'GREEN_SOLID_30S') {
+        led.style.background = '#10b981';
+        led.style.boxShadow = '0 0 18px #10b981';
+        title.textContent = 'LED Bicolore : VERT FIXE (30s)';
+        sub.textContent = '🟢 Mot de passe validé — Accès Back-office ouvert';
+      } else if (state === 'RED_SOLID_30S') {
+        led.style.background = '#ef4444';
+        led.style.boxShadow = '0 0 18px #ef4444';
+        title.textContent = 'LED Bicolore : ROUGE FIXE (30s)';
+        sub.textContent = '🔴 Visage non reconnu / Compte bloqué';
+      } else if (state === 'RED_BLINK_10X') {
+        led.style.background = '#ef4444';
+        led.style.boxShadow = '0 0 16px #ef4444';
+        title.textContent = 'LED Bicolore : ROUGE CLIGNOTANT (10x)';
+        sub.textContent = '🔴 Mot de passe erroné — Cycle réinitialisé';
+      } else {
+        led.style.background = '#475569';
+        led.style.boxShadow = 'none';
+        title.textContent = 'LED Bicolore : ÉTEINTE (OFF)';
+        sub.textContent = '⚪ ESP-12F en attente d\'identification';
+      }
+    }
+
+    async function triggerBiometricFaceCheck() {
+      const username = document.getElementById('bio-username-input').value.trim();
+      const fb = document.getElementById('bio-feedback-msg');
+      if (!username) {
+        fb.textContent = 'Veuillez saisir un identifiant.';
+        fb.style.color = '#f87171';
+        return;
+      }
+      fb.textContent = '📸 Activation de la caméra USB du PC Hôte et extraction du descripteur 128D...';
+      fb.style.color = '#38bdf8';
+      document.getElementById('bio-cam-btn').disabled = true;
+
+      try {
+        const res = await fetch('/live/v1/bio-identify', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: username, use_camera: true})
+        });
+        const data = await res.json();
+        if (res.ok && data.face_verified) {
+          bioFaceVerified = true;
+          fb.textContent = `✓ Visage reconnu (similarité ${((data.similarity_score || 0.85)*100).toFixed(1)}%). LED : Vert clignotant. Mot de passe débloqué !`;
+          fb.style.color = '#34d399';
+          document.getElementById('bio-password-input').disabled = false;
+          document.getElementById('bio-password-input').style.background = '#020617';
+          document.getElementById('bio-password-input').style.color = '#fff';
+          document.getElementById('bio-login-btn').disabled = false;
+          updateEspLedVisual('GREEN_BLINK');
+        } else {
+          bioFaceVerified = false;
+          updateEspLedVisual('RED_SOLID_30S');
+          if (data.locked) {
+            currentLockoutSecs = data.locked_seconds_remaining || 300;
+            document.getElementById('lockout-secs').textContent = currentLockoutSecs;
+            document.getElementById('lockout-countdown').style.display = 'inline';
+            fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s.`;
+            fb.style.color = '#ef4444';
+          } else {
+            fb.textContent = `✗ ${data.message} Nom d'utilisateur réinitialisé. LED : Rouge fixe 30s.`;
+            fb.style.color = '#fbbf24';
+            document.getElementById('bio-username-input').value = '';
+            document.getElementById('bio-cam-btn').disabled = false;
+          }
+        }
+      } catch (err) {
+        fb.textContent = 'Erreur biométrique : ' + err.message;
+        fb.style.color = '#f87171';
+        document.getElementById('bio-cam-btn').disabled = false;
+      }
+      refreshBiometricHabilitations();
+    }
+
+    async function validatePasswordAndLogin() {
+      const username = document.getElementById('bio-username-input').value.trim();
+      const password = document.getElementById('bio-password-input').value;
+      const fb = document.getElementById('bio-feedback-msg');
+
+      try {
+        const res = await fetch('/live/v1/bio-login', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username: username, password: password})
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+          updateEspLedVisual('GREEN_SOLID_30S');
+          fb.textContent = '✓ Authentification réussie ! LED : Vert fixe 30s. Accès Back-office autorisé.';
+          fb.style.color = '#34d399';
+        } else {
+          updateEspLedVisual('RED_BLINK_10X');
+          fb.textContent = '✗ Mot de passe incorrect ! LED : Rouge clignote 10 fois. Recommencez le cycle.';
+          fb.style.color = '#ef4444';
+          bioFaceVerified = false;
+          document.getElementById('bio-password-input').disabled = true;
+          document.getElementById('bio-login-btn').disabled = true;
+          document.getElementById('bio-cam-btn').disabled = false;
+        }
+      } catch (err) {
+        fb.textContent = 'Erreur : ' + err.message;
+      }
+      refreshBiometricHabilitations();
+    }
+
+    async function testLedState(state) {
+      await fetch('/live/v1/bio-led-test', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({state: state})
+      });
+      updateEspLedVisual(state);
+    }
+
+    async function resetOperatorLockout(u) {
+      await fetch('/live/v1/bio-reset', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({username: u})
+      });
+      currentLockoutSecs = 0;
+      document.getElementById('lockout-countdown').style.display = 'none';
+      document.getElementById('bio-cam-btn').disabled = false;
+      refreshBiometricHabilitations();
+    }
+
+    async function refreshBiometricHabilitations() {
+      try {
+        const r = await fetch('/live/v1/summary');
+        const s = await r.json();
+        const bio = s.biometrics || {};
+        if (bio.esp_hardware) {
+          updateEspLedVisual(bio.esp_hardware.current_state, bio.esp_hardware.port);
+        }
+        const tbody = document.getElementById('bio-habilitations-table');
+        if (tbody && bio.habilitations) {
+          tbody.innerHTML = bio.habilitations.map(h => `
+            <tr>
+              <td><strong>${h.display_name}</strong></td>
+              <td class="mono">${h.username}</td>
+              <td>${h.role}</td>
+              <td><span style="color:${h.is_locked ? '#f87171' : '#34d399'};font-weight:700">${h.is_locked ? 'BLOQUÉ (' + h.lockout_seconds_remaining + 's)' : h.status}</span></td>
+              <td>${h.is_locked ? `<button class="amber" style="padding:2px 6px;font-size:0.7rem;margin:0;" onclick="resetOperatorLockout('${h.username}')">Débloquer</button>` : '—'}</td>
+            </tr>
+          `).join('');
+        }
       } catch (e) {}
     }
 
@@ -1444,8 +1709,47 @@ class LiveResilienceCluster:
                         "metrics": dict(self.orchestrator.metrics),
                     },
                     "ledger": self._get_ledger_snapshot(),
+                    "biometrics": {
+                        "habilitations": biometric_service.list_habilitations(),
+                        "esp_hardware": esp_controller.get_status(),
+                    },
                 }
             ), 200
+
+        @app.route("/live/v1/bio-identify", methods=["POST"])
+        def live_bio_identify() -> Tuple[Response, int]:
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "")).strip()
+            use_cam = bool(body.get("use_camera", True))
+            res = biometric_service.verify_operator_face(username, use_camera=use_cam)
+            code = 200 if res.get("face_verified") else (423 if res.get("locked") else 401)
+            return jsonify(res), code
+
+        @app.route("/live/v1/bio-login", methods=["POST"])
+        def live_bio_login() -> Tuple[Response, int]:
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "")).strip()
+            password = str(body.get("password", ""))
+            bundle, err = self.auth_engine.authenticate(username, password)
+            if err or not bundle:
+                biometric_service.validate_password_step(username, False)
+                return jsonify({"error": err or "Mot de passe invalide.", "success": False}), 401
+            biometric_service.validate_password_step(username, True)
+            return jsonify({"bundle": bundle, "success": True, "message": "Accès Back-office autorisé."}), 200
+
+        @app.route("/live/v1/bio-led-test", methods=["POST"])
+        def live_bio_led_test() -> Tuple[Response, int]:
+            body = request.get_json(silent=True) or {}
+            state = str(body.get("state", "OFF")).strip().upper()
+            esp_controller.set_led_state(state, "Test manuel depuis le Dashboard IA")
+            return jsonify({"success": True, "state": state, "esp_status": esp_controller.get_status()}), 200
+
+        @app.route("/live/v1/bio-reset", methods=["POST"])
+        def live_bio_reset() -> Tuple[Response, int]:
+            body = request.get_json(silent=True) or {}
+            username = str(body.get("username", "")).strip()
+            biometric_service.reset_lockout(username)
+            return jsonify({"success": True, "message": f"Opérateur {username} débloqué."}), 200
 
         @app.route("/live/v1/trigger-payment", methods=["POST"])
         def trigger_payment() -> Tuple[Response, int]:

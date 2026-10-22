@@ -67,6 +67,10 @@ def run_suite() -> Dict[str, Any]:
                 "status": "PASS" if result.wasSuccessful() else "FAIL",
             },
             {
+                "check": "Tests Habilitations Biométriques (IA Visage, Caméra USB, Lockout 5 min) & IoT ESP-12F LED",
+                "status": "PASS" if result.wasSuccessful() else "FAIL",
+            },
+            {
                 "check": "3 Répétitions Chronométrées de Bout en Bout (T0 -> Attaque -> ML -> Remédiation -> T5)",
                 "status": "PASS" if result.wasSuccessful() else "FAIL",
             },

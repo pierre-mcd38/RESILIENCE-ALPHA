@@ -244,7 +244,7 @@ def build_engineering_pdf(output_pdf: Path, group_label: str) -> Dict[str, Any]:
             [
                 ["Service", "Port", "Budget CPU / RAM", "Responsabilité Principale & Mesures de Durcissement"],
                 ["waf-gateway", "8080", "0.50 vCPU / 128 Mo", "Reverse proxy L7 : signatures statiques (SQLi/XSS/Traversal) + blocage IP dynamique AIOps"],
-                ["auth", "8002", "0.25 vCPU / 128 Mo", "Émission/vérification JWT HS256, RBAC (merchant_operator, resilience_probe, auditor_readonly)"],
+                ["auth", "8002", "0.25 vCPU / 128 Mo", "JWT HS256, RBAC, biométrie faciale IA 128D & pilotage LED bicolore ESP-12F (Consigne Additionnelle 1)"],
                 ["api", "8001", "0.75 vCPU / 256 Mo", "Paiements atomiques en centimes entiers, table idempotency_keys, invariant comptable"],
                 ["detector", "8003", "0.50 vCPU / 256 Mo", "Inférence ML IsolationForest sur fenêtres de 5 s (7 métriques), attribution des variables"],
                 ["remediator", "8004", "0.25 vCPU / 128 Mo", "Automate d'incident, corrélation SOC multi-sources, sonde métier post-remédiation"],
@@ -301,6 +301,17 @@ def build_engineering_pdf(output_pdf: Path, group_label: str) -> Dict[str, Any]:
                 ["Arrêt d'urgence immédiat (Kill-Switch)", "scenarios/kill_switch.py (sentinelle + mémoire)", "Interruption vérifiée en < 50 ms avant tout envoi de requête (PASS)"],
             ],
             [48 * mm, 62 * mm, 68 * mm],
+        )
+    )
+    story.append(Spacer(1, 2 * mm))
+    story.append(Paragraph("3.3 Durcissement Physique & Biométrique (Consigne Additionnelle 1)", h2_style))
+    story.append(
+        Paragraph(
+            "Conformément à la consigne additionnelle d'urgence, l'accès au back-office est sécurisé par reconnaissance faciale IA "
+            "(OpenCV Haar Cascade + extraction Sobel 128D) via la caméra USB du PC Hôte, asservie à une LED bicolore sur microcontrôleur "
+            "ESP8266 (ESP-12F sur COM6 / Wi-Fi RESILIENCE-G2). Règle de sécurité : 2 tentatives max avant verrouillage strict de 5 minutes "
+            "(rouge fixe 30s). Validation mot de passe : vert fixe 30s si conforme, rouge clignotant 10 fois si invalide.",
+            body_style,
         )
     )
     story.append(PageBreak())
@@ -655,12 +666,12 @@ def build_presentation_pptx(output_pptx: Path, group_label: str) -> Dict[str, An
             ],
         ),
         (
-            "1. Enjeux Métier & Architecture Microservices Confinée (0:00 - 1:00)",
+            "1. Enjeux Métier, Architecture Confinée & Biométrie IoT (0:00 - 1:00)",
             [
                 "Contexte : L'arrêt d'un service de paiement bloque les partenaires et engage la responsabilité réglementaire (DORA / NIS2).",
                 "Architecture en 5 réseaux Docker isolés : edge_net (:8080/:3000), app_net, data_net (interne), obs_net, control_net (interne).",
                 "Garanties métier (services/api & services/auth) : JWT HS256 + RBAC, montants exacts en centimes entiers, Idempotency-Key SHA-256.",
-                "Confinement strict : Aucun socket Docker dans l'API, le front ou le RAG ; seul executor agit sur control_net via ordres signés HMAC.",
+                "Consigne Additionnelle 1 : Authentification faciale IA 128D (caméra USB), verrouillage 5 min, et automate LED bicolore ESP-12F (CLion/PlatformIO).",
             ],
         ),
         (

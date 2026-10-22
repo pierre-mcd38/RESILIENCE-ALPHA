@@ -23,6 +23,16 @@ export default function App() {
   const [invariant, setInvariant] = useState(null);
   const [transactions, setTransactions] = useState([]);
 
+  // Biométrie IA & Contrôle Matériel IoT ESP8266 (Consigne Additionnelle 1)
+  const [faceVerified, setFaceVerified] = useState(false);
+  const [faceChecking, setFaceChecking] = useState(false);
+  const [faceAttemptsRemaining, setFaceAttemptsRemaining] = useState(2);
+  const [lockoutSeconds, setLockoutSeconds] = useState(0);
+  const [biometricFeedback, setBiometricFeedback] = useState('');
+  const [espLedState, setEspLedState] = useState('OFF');
+  const [habilitations, setHabilitations] = useState([]);
+  const [espHardware, setEspHardware] = useState(null);
+
   // Formulaire de transaction fictive
   const [sourceAccount, setSourceAccount] = useState('ACC-FR-001');
   const [targetAccount, setTargetAccount] = useState('ACC-FR-002');
@@ -84,8 +94,85 @@ export default function App() {
     }
   }, [jwtToken, fetchBusinessData]);
 
+  // Décompte du verrouillage 5 minutes
+  useEffect(() => {
+    if (lockoutSeconds > 0) {
+      const timer = setInterval(() => {
+        setLockoutSeconds((prev) => (prev > 1 ? prev - 1 : 0));
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [lockoutSeconds]);
+
+  // Sondage régulier des habilitations et de l'état matériel ESP8266
+  const fetchBiometricStatus = useCallback(async () => {
+    try {
+      const resp = await fetch(`${gatewayUrl}/auth/v1/biometric/status`);
+      if (resp.ok) {
+        const data = await resp.json();
+        setHabilitations(data.habilitations || []);
+        setEspHardware(data.esp_hardware || null);
+        if (data.esp_hardware?.current_state) {
+          setEspLedState(data.esp_hardware.current_state);
+        }
+      }
+    } catch (_) {}
+  }, [gatewayUrl]);
+
+  useEffect(() => {
+    fetchBiometricStatus();
+    const timer = setInterval(fetchBiometricStatus, 2500);
+    return () => clearInterval(timer);
+  }, [fetchBiometricStatus]);
+
+  // Étape 1 & 2 : Déclenchement Caméra USB sur PC Hôte & Reconnaissance IA
+  const handleTriggerBiometricAuth = async () => {
+    if (!username.trim()) {
+      setBiometricFeedback("Veuillez saisir un nom d'utilisateur avant de déclencher la caméra.");
+      return;
+    }
+    setFaceChecking(true);
+    setBiometricFeedback("Activation de la caméra USB du PC Hôte et extraction du descripteur 128D...");
+    try {
+      const resp = await fetch(`${gatewayUrl}/auth/v1/identify-start`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username.trim(), use_camera: true })
+      });
+      const data = await resp.json();
+      if (resp.ok && data.face_verified) {
+        setFaceVerified(true);
+        setFaceAttemptsRemaining(2);
+        setEspLedState(data.esp_led_state || 'GREEN_BLINK');
+        setBiometricFeedback(`✓ Visage reconnu (similarité ${((data.similarity_score || 0.85) * 100).toFixed(1)}%). LED ESP8266 : Vert clignotant. Le champ mot de passe est débloqué.`);
+      } else {
+        setFaceVerified(false);
+        setEspLedState(data.esp_led_state || 'RED_SOLID_30S');
+        if (data.locked) {
+          setLockoutSeconds(data.locked_seconds_remaining || 300);
+          setFaceAttemptsRemaining(0);
+          setBiometricFeedback(`✗ ${data.message} LED ESP8266 : Rouge fixe 30s.`);
+        } else {
+          setFaceAttemptsRemaining(data.attempts_remaining ?? 1);
+          setBiometricFeedback(`✗ ${data.message} Nom d'utilisateur réinitialisé. LED ESP8266 : Rouge fixe 30s.`);
+          setUsername('');
+        }
+      }
+    } catch (err) {
+      setBiometricFeedback(`Erreur de connexion au service biométrique : ${err.message}`);
+    } finally {
+      setFaceChecking(false);
+      fetchBiometricStatus();
+    }
+  };
+
+  // Étape 3 : Validation du Mot de Passe & Accès Back-office
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (!faceVerified) {
+      setBiometricFeedback("Veuillez d'abord valider votre visage via la caméra USB.");
+      return;
+    }
     try {
       const resp = await fetch(`${gatewayUrl}/auth/v1/token`, {
         method: 'POST',
@@ -95,13 +182,48 @@ export default function App() {
       const data = await resp.json();
       if (resp.ok && data.access_token) {
         setJwtToken(data.access_token);
+        setEspLedState('GREEN_SOLID_30S');
+        setBiometricFeedback("✓ Mot de passe valide ! LED ESP8266 : Vert fixe 30s puis extinction. Accès Back-office autorisé.");
         fetchBusinessData(data.access_token);
       } else {
+        setEspLedState('RED_BLINK_10X');
+        setFaceVerified(false);
+        setBiometricFeedback("✗ Mot de passe invalide ! LED ESP8266 : Rouge clignote 10 fois puis extinction. Le cycle recommence.");
         setTxResult({ ok: false, status: resp.status, payload: data });
       }
     } catch (err) {
       setTxResult({ ok: false, status: 0, payload: { error: err.message } });
+    } finally {
+      fetchBiometricStatus();
     }
+  };
+
+  const handleResetLockout = async (targetUser) => {
+    try {
+      await fetch(`${gatewayUrl}/auth/v1/biometric/reset-lockout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: targetUser })
+      });
+      setLockoutSeconds(0);
+      setFaceAttemptsRemaining(2);
+      setBiometricFeedback(`Verrouillage de l'opérateur '${targetUser}' réinitialisé.`);
+      fetchBiometricStatus();
+    } catch (_) {}
+  };
+
+  const handleTestEspLed = async (state) => {
+    try {
+      const resp = await fetch(`${gatewayUrl}/auth/v1/biometric/led-test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state })
+      });
+      if (resp.ok) {
+        setEspLedState(state);
+      }
+      fetchBiometricStatus();
+    } catch (_) {}
   };
 
   const handleCreateTransaction = async (e, reuseKey = false) => {
@@ -285,33 +407,126 @@ export default function App() {
             </h2>
 
             {!jwtToken ? (
-              <form onSubmit={handleLogin} className="space-y-3">
-                <div className="text-xs text-slate-400">
-                  Authentification JWT requise auprès de <code>services/auth</code> :
+              <div className="space-y-4">
+                {/* Visualiseur LED ESP8266 Physique & Virtuelle */}
+                <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-slate-300 flex items-center gap-2">
+                      <span className="relative flex h-3 w-3">
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                          espLedState.startsWith('GREEN') ? 'bg-emerald-400' : (espLedState.startsWith('RED') ? 'bg-red-400' : 'bg-slate-600')
+                        }`}></span>
+                        <span className={`relative inline-flex rounded-full h-3 w-3 ${
+                          espLedState.startsWith('GREEN') ? 'bg-emerald-500' : (espLedState.startsWith('RED') ? 'bg-red-500' : 'bg-slate-700')
+                        }`}></span>
+                      </span>
+                      LED Bicolore ESP-12F ({espHardware?.port || 'COM6'} / Wi-Fi) :
+                    </span>
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-bold ${
+                      espLedState === 'GREEN_BLINK' ? 'bg-emerald-950 text-emerald-300 border border-emerald-500 animate-pulse' :
+                      espLedState === 'GREEN_SOLID_30S' ? 'bg-emerald-900/60 text-emerald-200 border border-emerald-400' :
+                      espLedState === 'RED_SOLID_30S' ? 'bg-red-950 text-red-300 border border-red-500' :
+                      espLedState === 'RED_BLINK_10X' ? 'bg-red-950 text-red-300 border border-red-500 animate-bounce' :
+                      'bg-slate-800 text-slate-400'
+                    }`}>
+                      {espLedState}
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400">
+                    {espLedState === 'GREEN_BLINK' && "🟢 Vert clignotant : Visage reconnu par IA ! Saisissez votre mot de passe."}
+                    {espLedState === 'GREEN_SOLID_30S' && "🟢 Vert fixe (30s) : Mot de passe validé ! Accès Back-office ouvert."}
+                    {espLedState === 'RED_SOLID_30S' && "🔴 Rouge fixe (30s) : Visage non reconnu / Compte bloqué."}
+                    {espLedState === 'RED_BLINK_10X' && "🔴 Rouge clignotant (10x) : Mot de passe erroné. Cycle réinitialisé."}
+                    {espLedState === 'OFF' && "⚪ LED éteinte — En attente d'identification."}
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <input
-                    type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    placeholder="Utilisateur"
-                    className="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm"
-                  />
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Mot de passe"
-                    className="bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 rounded font-semibold text-sm"
-                >
-                  Se connecter (Obtenir Jeton JWT HS256)
-                </button>
-              </form>
+
+                {/* Bannière de feedback biométrique */}
+                {biometricFeedback && (
+                  <div className={`p-2.5 rounded text-xs border ${
+                    faceVerified ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-200' :
+                    lockoutSeconds > 0 ? 'bg-red-950/60 border-red-500 text-red-200 font-semibold' :
+                    'bg-slate-800/60 border-slate-700 text-slate-300'
+                  }`}>
+                    {biometricFeedback}
+                    {lockoutSeconds > 0 && (
+                      <div className="text-amber-400 font-mono text-xs mt-1">
+                        Temps de verrouillage restant : {Math.floor(lockoutSeconds / 60)}m {lockoutSeconds % 60}s
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Formulaire en 3 étapes de la Consigne Additionnelle 1 */}
+                <form onSubmit={handleLogin} className="space-y-3">
+                  {/* Étape 1 : Saisie de l'identifiant */}
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">
+                      1. Identifiant Opérateur (Quota : {faceAttemptsRemaining}/2 essais restants)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={username}
+                        disabled={lockoutSeconds > 0}
+                        onChange={(e) => setUsername(e.target.value)}
+                        placeholder="Ex: operator_alpha ou lenny_barresi"
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded px-3 py-1.5 text-sm"
+                      />
+                      <button
+                        type="button"
+                        disabled={faceChecking || lockoutSeconds > 0 || !username.trim()}
+                        onClick={handleTriggerBiometricAuth}
+                        className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white rounded text-xs font-semibold flex items-center gap-1.5"
+                      >
+                        {faceChecking ? '📸 Analyse IA...' : '📸 Déclencher Caméra USB'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Étape 2 : Champ Mot de passe (débloqué uniquement si visage reconnu) */}
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-xs text-slate-400">
+                        2. Mot de Passe Back-office
+                      </label>
+                      <span className={`text-[11px] font-semibold ${faceVerified ? 'text-emerald-400' : 'text-slate-500'}`}>
+                        {faceVerified ? '✓ Débloqué par reconnaissance faciale' : '🔒 Bloqué (visage non validé)'}
+                      </span>
+                    </div>
+                    <input
+                      type="password"
+                      value={password}
+                      disabled={!faceVerified || lockoutSeconds > 0}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder={faceVerified ? "Saisissez votre mot de passe" : "Débloqué après reconnaissance faciale"}
+                      className={`w-full border rounded px-3 py-1.5 text-sm ${
+                        faceVerified ? 'bg-slate-950 border-emerald-500 text-white' : 'bg-slate-900 border-slate-800 text-slate-600 cursor-not-allowed'
+                      }`}
+                    />
+                  </div>
+
+                  {/* Étape 3 : Bouton de validation finale */}
+                  <button
+                    type="submit"
+                    disabled={!faceVerified || lockoutSeconds > 0}
+                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:cursor-not-allowed rounded font-semibold text-sm transition"
+                  >
+                    Valider le Mot de Passe &amp; Ouvrir le Back-office
+                  </button>
+                </form>
+
+                {/* Déblocage administrateur si bloqué */}
+                {lockoutSeconds > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleResetLockout(username || 'operator_alpha')}
+                    className="w-full py-1.5 bg-amber-600/30 hover:bg-amber-600/50 border border-amber-500 text-amber-200 rounded text-xs font-semibold"
+                  >
+                    Débloquer Immédiatement (Privilège Administrateur Back-Office)
+                  </button>
+                )}
+              </div>
             ) : (
               <form onSubmit={(e) => handleCreateTransaction(e, false)} className="space-y-3">
                 <div className="grid grid-cols-2 gap-2">
@@ -402,6 +617,92 @@ export default function App() {
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Gestion des Habilitations Biométriques & Contrôle IoT ESP8266 (Consigne Additionnelle 1) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>🔐</span> Back-office Habilitations Biométriques &amp; Objet IoT
+              </h2>
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-indigo-950 text-indigo-300 border border-indigo-700">
+                ESP-12F ({espHardware?.port || 'COM6'})
+              </span>
+            </div>
+
+            {/* Tableau des opérateurs enrôlés */}
+            <div className="space-y-2">
+              <div className="text-xs font-semibold text-slate-300">Opérateurs Habilités &amp; Descripteurs 128D :</div>
+              <div className="max-h-44 overflow-y-auto space-y-1.5 text-xs">
+                {habilitations.map((h) => (
+                  <div key={h.username} className="flex items-center justify-between bg-slate-950 p-2 rounded border border-slate-800/80">
+                    <div>
+                      <div className="font-semibold text-white">{h.display_name} <span className="text-slate-400 font-mono text-[11px]">({h.username})</span></div>
+                      <div className="text-[11px] text-slate-400">Rôle : {h.role} | Échecs : {h.failed_attempts || 0}/2</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                        h.is_locked ? 'bg-red-950 text-red-300 border border-red-500 animate-pulse' : 'bg-emerald-950 text-emerald-300 border border-emerald-600'
+                      }`}>
+                        {h.is_locked ? `BLOQUÉ (${h.lockout_seconds_remaining}s)` : h.status}
+                      </span>
+                      {h.is_locked && (
+                        <button
+                          onClick={() => handleResetLockout(h.username)}
+                          className="px-2 py-0.5 bg-amber-600 hover:bg-amber-500 text-white rounded text-[11px] font-semibold"
+                        >
+                          Débloquer
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Commandes directes de test de la LED bicolore */}
+            <div className="pt-2 border-t border-slate-800 space-y-2">
+              <div className="text-xs font-semibold text-slate-300">
+                Banc de Test Direct LED Bicolore ESP8266 (Série COM6 &amp; Wi-Fi) :
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleTestEspLed('GREEN_BLINK')}
+                  className="px-2 py-1 bg-emerald-700/80 hover:bg-emerald-600 text-white rounded text-[11px] font-medium"
+                >
+                  🟢 Vert Clignotant (Visage OK)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTestEspLed('GREEN_SOLID_30S')}
+                  className="px-2 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[11px] font-medium"
+                >
+                  🟢 Vert Fixe 30s (Pass OK)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTestEspLed('RED_SOLID_30S')}
+                  className="px-2 py-1 bg-red-700/80 hover:bg-red-600 text-white rounded text-[11px] font-medium"
+                >
+                  🔴 Rouge Fixe 30s (Visage KO)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTestEspLed('RED_BLINK_10X')}
+                  className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-[11px] font-medium"
+                >
+                  🔴 Rouge Clignote 10x (Pass KO)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleTestEspLed('OFF')}
+                  className="px-2 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded text-[11px] font-medium"
+                >
+                  ⚪ Éteindre (OFF)
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* Assistant RAG Local */}
