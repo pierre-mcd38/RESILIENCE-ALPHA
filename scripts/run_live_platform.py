@@ -472,7 +472,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           <strong>Cycle de Sécurité Physique :</strong> Caméra PC Portable &rarr; IA Visage (2 essais max) &rarr; LED Bicolore ESP-12F &rarr; Mot de Passe
         </div>
         <div style="display:flex;gap:6px;margin-bottom:6px;">
-          <input id="bio-username-input" type="text" placeholder="Identifiant (ex: operator_alpha)" value="operator_alpha" style="flex:1;background:#020617;border:1px solid #334155;color:#fff;padding:6px 10px;border-radius:6px;font-size:0.8rem;" />
+          <select id="bio-username-input" style="flex:1;background:#020617;border:1px solid #38bdf8;color:#f8fafc;padding:6px 10px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;">
+            <option value="operator_alpha" selected>👤 Opérateur Marchand Alpha (operator_alpha)</option>
+            <option value="rohail_arshad">👤 Rohail ARSHAD (Équipe G2)</option>
+            <option value="lenny_barresi">👤 Lenny BARRESI (Équipe G2)</option>
+            <option value="youssef_hansil">👤 Youssef HANSIL (Équipe G2)</option>
+            <option value="pierre_michaud">👤 Pierre MICHAUD-EYMOZ (Équipe G2)</option>
+          </select>
           <button class="blue" id="bio-cam-btn" onclick="triggerBiometricFaceCheck()">📸 1. Analyser mon visage</button>
         </div>
 
@@ -868,9 +874,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     async function enrollMyFaceSnapshot() {
-      const username = document.getElementById('bio-username-input').value.trim() || 'operator_alpha';
+      const sel = document.getElementById('bio-username-input');
+      const username = sel.value.trim() || 'operator_alpha';
+      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
       const fb = document.getElementById('bio-feedback-msg');
-      fb.textContent = "📸 Capture de votre visage depuis la caméra intégrée en cours...";
+      fb.textContent = `📸 Capture de votre visage pour '${displayName}' en cours...`;
       fb.style.color = "#38bdf8";
 
       const b64 = captureLaptopVideoFrame();
@@ -880,13 +888,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             username: username,
-            display_name: username === 'operator_alpha' ? 'Opérateur Marchand Alpha' : username,
+            display_name: displayName,
             image_b64: b64
           })
         });
         const d = await res.json();
         if (res.ok && d.success) {
-          fb.textContent = `✓ Votre visage a été mémorisé avec succès pour '${username}' ! Cliquez sur 'Analyser mon visage'.`;
+          fb.textContent = `✓ Votre visage a été mémorisé avec succès pour '${displayName}' ! Cliquez maintenant sur '1. Analyser mon visage'.`;
           fb.style.color = "#34d399";
           currentLockoutSecs = 0;
           document.getElementById('lockout-countdown').style.display = 'none';
@@ -903,14 +911,16 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     }
 
     async function triggerBiometricFaceCheck() {
-      const username = document.getElementById('bio-username-input').value.trim();
+      const sel = document.getElementById('bio-username-input');
+      const username = sel.value.trim();
+      const displayName = sel.options && sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text.replace(/^[^a-zA-Z0-9_\s]*\s*/, '') : username;
       const fb = document.getElementById('bio-feedback-msg');
       if (!username) {
-        fb.textContent = 'Veuillez saisir un identifiant.';
+        fb.textContent = 'Veuillez sélectionner un opérateur.';
         fb.style.color = '#f87171';
         return;
       }
-      fb.textContent = "📸 Déclenchement de la caméra de votre PC portable et analyse du visage par l'IA...";
+      fb.textContent = `📸 Analyse biométrique du visage par l'IA pour '${displayName}'...`;
       fb.style.color = '#38bdf8';
       document.getElementById('bio-cam-btn').disabled = true;
 
@@ -925,7 +935,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         const data = await res.json();
         if (res.ok && data.face_verified) {
           bioFaceVerified = true;
-          fb.textContent = `✓ Visage reconnu (similarité ${((data.similarity_score || 0.85)*100).toFixed(1)}%). LED : Vert clignotant. Mot de passe débloqué !`;
+          fb.textContent = `✓ Visage reconnu pour ${displayName} (similarité ${((data.similarity_score || 0.85)*100).toFixed(1)}%). LED : Vert clignotant. Mot de passe débloqué !`;
           fb.style.color = '#34d399';
           document.getElementById('bio-password-input').disabled = false;
           document.getElementById('bio-password-input').style.background = '#020617';
@@ -939,12 +949,11 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             currentLockoutSecs = data.locked_seconds_remaining || 300;
             document.getElementById('lockout-secs').textContent = currentLockoutSecs;
             document.getElementById('lockout-countdown').style.display = 'inline';
-            fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s.`;
+            fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s. Compte bloqué.`;
             fb.style.color = '#ef4444';
           } else {
-            fb.textContent = `✗ ${data.message} Nom d'utilisateur réinitialisé. LED : Rouge fixe 30s.`;
+            fb.textContent = `✗ ${data.message} LED : Rouge fixe 30s. Vous pouvez réexaminer ou changer d'opérateur.`;
             fb.style.color = '#fbbf24';
-            document.getElementById('bio-username-input').value = '';
             document.getElementById('bio-cam-btn').disabled = false;
           }
         }
@@ -1848,7 +1857,9 @@ class LiveResilienceCluster:
             use_cam = bool(body.get("use_camera", True))
             image_b64 = body.get("image_b64")
             frame = _decode_b64_image(image_b64) if image_b64 else None
+            print(f"[LIVE-BIO] Identify request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
             res = biometric_service.verify_operator_face(username, frame=frame, use_camera=use_cam)
+            print(f"[LIVE-BIO] Identify result: {res}", flush=True)
             code = 200 if res.get("face_verified") else (423 if res.get("locked") else 401)
             return jsonify(res), code
 
@@ -1860,6 +1871,7 @@ class LiveResilienceCluster:
             display_name = str(body.get("display_name", username)).strip()
             image_b64 = body.get("image_b64")
             frame = _decode_b64_image(image_b64) if image_b64 else None
+            print(f"[LIVE-BIO] Enroll request for '{username}' (b64_present={bool(image_b64)}, frame={frame.shape if frame is not None else None})", flush=True)
             if frame is None:
                 ok, frame, msg = biometric_service.capture_frame_from_usb_camera(0)
                 if not ok:

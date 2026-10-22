@@ -133,20 +133,32 @@ class BiometricFaceService:
             face_roi = gray[y : y + h, x : x + w]
             bbox = (int(x), int(y), int(w), int(h))
 
-        # Normalisation à 128x128 pixels
-        resized = cv2.resize(face_roi, (128, 128), interpolation=cv2.INTER_AREA)
+        # Normalisation et lissage pour réduire le bruit de capteur et les micro-mouvements
+        blurred = cv2.GaussianBlur(face_roi, (5, 5), 0)
+        resized = cv2.resize(blurred, (64, 64), interpolation=cv2.INTER_AREA)
 
-        # Calcul d'un vecteur spatial multi-résolution (blocs 8x8 et gradients de Sobel)
+        # 64D : Grille spatiale de luminance normalisée (8x8)
+        lum = cv2.resize(resized, (8, 8), interpolation=cv2.INTER_AREA).flatten().astype(np.float32)
+        lum = lum - np.mean(lum)
+        lum_norm = np.linalg.norm(lum)
+        if lum_norm > 1e-6:
+            lum = lum / lum_norm
+
+        # 64D : Gradients de Sobel multi-directionnels (8x8)
         gx = cv2.Sobel(resized, cv2.CV_32F, 1, 0, ksize=3)
         gy = cv2.Sobel(resized, cv2.CV_32F, 0, 1, ksize=3)
         mag, _ = cv2.cartToPolar(gx, gy)
+        grad = cv2.resize(mag, (8, 8), interpolation=cv2.INTER_AREA).flatten().astype(np.float32)
+        grad_norm = np.linalg.norm(grad)
+        if grad_norm > 1e-6:
+            grad = grad / grad_norm
 
-        # Réduction par pooling moyen 8x8 (16x16 = 256 dimensions condensées à 128D)
-        pooled = cv2.resize(mag, (16, 8), interpolation=cv2.INTER_AREA).flatten()
-        norm = np.linalg.norm(pooled)
+        # Vecteur biométrique combiné 128 dimensions strictly normalisé
+        desc = np.concatenate([lum * 0.6, grad * 0.4])
+        norm = np.linalg.norm(desc)
         if norm > 1e-6:
-            pooled = pooled / norm
-        return pooled.astype(np.float32), bbox
+            desc = desc / norm
+        return desc.astype(np.float32), bbox
 
     def capture_frame_from_usb_camera(self, camera_index: int = 0) -> Tuple[bool, Optional[np.ndarray], str]:
         """Active la caméra USB sur le PC Hôte, capture une image puis éteint la caméra."""
@@ -231,9 +243,12 @@ class BiometricFaceService:
                     similarity = float(np.dot(enrolled_vector, descriptor) / (np.linalg.norm(enrolled_vector) * np.linalg.norm(descriptor) + 1e-6))
                 else:
                     similarity = 0.0
+                    return self._handle_failed_attempt(username, "Aucun visage net détecté par l'IA. Cadrez bien votre visage face à la caméra.")
             else:
                 # Mode simulation pour essais scriptés
                 similarity = 0.85
+
+            print(f"[BIOMETRIC-DEBUG] User: {username} | Similarity: {similarity:.4f} | Threshold: {self.SIMILARITY_THRESHOLD}", flush=True)
 
             logger.info(f"[Biométrie IA] Utilisateur '{username}' — Similarité faciale mesurée : {similarity:.4f} (Seuil : {self.SIMILARITY_THRESHOLD})")
 
@@ -258,12 +273,12 @@ class BiometricFaceService:
                     "display_name": user_profile.get("display_name", username),
                     "similarity_score": round(similarity, 4),
                     "preauth_token": preauth_token,
-                    "message": "Visage reconnu avec succès. Veuillez saisir votre mot de passe.",
+                    "message": f"Visage reconnu (similarité {(similarity*100):.1f}% >= 70%). Mot de passe débloqué !",
                     "esp_led_state": "GREEN_BLINK",
                 }
             else:
                 # ÉCHEC : Visage NON reconnu
-                return self._handle_failed_attempt(username, f"Visage non reconnu (score {similarity:.2f} < {self.SIMILARITY_THRESHOLD}).")
+                return self._handle_failed_attempt(username, f"Visage non reconnu (similarité {(similarity*100):.1f}% < 70%).")
 
     def _handle_failed_attempt(self, username: str, reason: str) -> Dict[str, Any]:
         """Gère l'échec de reconnaissance faciale, l'allumage Rouge fixe 30s et le verrouillage 5 min."""
