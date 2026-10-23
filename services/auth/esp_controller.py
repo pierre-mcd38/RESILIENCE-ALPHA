@@ -109,7 +109,12 @@ class ESP8266Controller:
         # 2. Envoi via HTTP Wi-Fi si configuré
         if self.wifi_url:
             try:
-                r = requests.get(f"{self.wifi_url}/led", params={"state": state}, timeout=0.6)
+                r = requests.get(
+                    f"{self.wifi_url}/led",
+                    params={"state": state},
+                    headers={"Connection": "close"},
+                    timeout=0.8,
+                )
                 if r.status_code == 200:
                     wifi_ok = True
                     logger.info(f"[ESP-12F Wi-Fi] Ordre acquitté : {state}")

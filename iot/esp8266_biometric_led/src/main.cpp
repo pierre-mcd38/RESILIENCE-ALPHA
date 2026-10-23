@@ -42,7 +42,7 @@
 
 // Identifiants Wi-Fi du Point d'Acces du PC Hote
 const char* WIFI_SSID = "RESILIENCE-G2";
-const char* WIFI_PASS = "AlphaResilience2026";
+const char* WIFI_PASS = "Azerty38";
 
 // Serveur Web sur port 80
 ESP8266WebServer server(80);
@@ -268,11 +268,21 @@ void setup() {
     Serial.print("[WiFi] Connexion au point d'acces : ");
     Serial.println(WIFI_SSID);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
+    WiFi.persistent(true);
+
+    // IP statique recommandee pour correspondre a ESP_WIFI_URL (192.168.137.50)
+    IPAddress staticIP(192, 168, 137, 50);
+    IPAddress gateway(192, 168, 137, 1);
+    IPAddress subnet(255, 255, 255, 0);
+    IPAddress dns(192, 168, 137, 1);
+    WiFi.config(staticIP, gateway, subnet, dns);
+
     WiFi.begin(WIFI_SSID, WIFI_PASS);
 
     // Tentative de connexion Wi-Fi non bloquante au demarrage
     unsigned long startAttempt = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 8000) {
+    while (WiFi.status() != WL_CONNECTED && millis() - startAttempt < 10000) {
         delay(300);
         Serial.print(".");
     }
@@ -301,6 +311,12 @@ void setup() {
 }
 
 void loop() {
+    // Reconnexion automatique si perte de signal Wi-Fi
+    static unsigned long lastWifiCheck = 0;
+    if (WiFi.status() != WL_CONNECTED && (millis() - lastWifiCheck > 5000)) {
+        lastWifiCheck = millis();
+        WiFi.reconnect();
+    }
     server.handleClient();
     processSerialCommands();
     updateStateMachine();
