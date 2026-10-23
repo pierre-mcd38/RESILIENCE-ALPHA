@@ -40,7 +40,7 @@ class ESP8266Controller:
     ) -> None:
         self.port = os.environ.get("ESP_SERIAL_PORT", port)
         self.baudrate = baudrate
-        self.wifi_url = wifi_url or os.environ.get("ESP_WIFI_URL", "http://192.168.137.50")
+        self.wifi_url = wifi_url or os.environ.get("ESP_WIFI_URL", None)
         self.current_state = self.STATE_OFF
         self.last_transition_time = time.time()
         self.last_trigger_reason = "Initialisation"
